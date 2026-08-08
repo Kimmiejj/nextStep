@@ -361,9 +361,97 @@
   <script>
     const state = { config:{}, rounds:[], questions:[], sourceLinks:[], profile:{}, answers:{}, currentRound:0, result:null, teacherToken:'', responses:[], selectedUniversity:null, selectedFaculty:null, customUniversity:false, customFaculty:false };
     const UNIVERSITY_DATA_URL = 'https://raw.githubusercontent.com/Hipo/university-domains-list/master/world_universities_and_domains.json';
+    const THAI_UNIVERSITY_NAMES = new Map([
+      ['asia pacific international university','มหาวิทยาลัยนานาชาติเอเชีย-แปซิฟิก'],
+      ['asian institute of technology','สถาบันเทคโนโลยีแห่งเอเชีย'],
+      ['asian university','มหาวิทยาลัยเอเชียน'],
+      ['asian university of science and technology','มหาวิทยาลัยเอเชียน'],
+      ['assumption university of thailand','มหาวิทยาลัยอัสสัมชัญ'],
+      ['bangkok university','มหาวิทยาลัยกรุงเทพ'],
+      ['burapha university','มหาวิทยาลัยบูรพา'],
+      ['chaopraya university','มหาวิทยาลัยเจ้าพระยา'],
+      ['chiang mai rajabhat university','มหาวิทยาลัยราชภัฏเชียงใหม่'],
+      ['chiang mai university','มหาวิทยาลัยเชียงใหม่'],
+      ['chiang mai vocational college','วิทยาลัยอาชีวศึกษาเชียงใหม่'],
+      ['chulalongkorn university','จุฬาลงกรณ์มหาวิทยาลัย'],
+      ['dhurakijpundit university','มหาวิทยาลัยธุรกิจบัณฑิตย์'],
+      ['eastern asia university','มหาวิทยาลัยอีสเทิร์นเอเชีย'],
+      ['hatyai university','มหาวิทยาลัยหาดใหญ่'],
+      ['huachiew chalermprakiet university','มหาวิทยาลัยหัวเฉียวเฉลิมพระเกียรติ'],
+      ['international buddhist college','วิทยาลัยพุทธศาสนานานาชาติ'],
+      ['kasem bundit university','มหาวิทยาลัยเกษมบัณฑิต'],
+      ['kasetsart university','มหาวิทยาลัยเกษตรศาสตร์'],
+      ['khon kaen university','มหาวิทยาลัยขอนแก่น'],
+      ["king mongkut's institute of technology ladkrabang",'สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง'],
+      ["king mongkut's university of technology north bangkok",'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าพระนครเหนือ'],
+      ["king mongkut's university of technology thonburi",'มหาวิทยาลัยเทคโนโลยีพระจอมเกล้าธนบุรี'],
+      ['krirk university','มหาวิทยาลัยเกริก'],
+      ['lampang college of commerce and technology','วิทยาลัยพาณิชยการและเทคโนโลยีลำปาง'],
+      ['lampang rajabhat university','มหาวิทยาลัยราชภัฏลำปาง'],
+      ['lampang vocational college','วิทยาลัยอาชีวศึกษาลำปาง'],
+      ['lamphun college of agriculture and technology','วิทยาลัยเกษตรและเทคโนโลยีลำพูน'],
+      ['mae fah luang university','มหาวิทยาลัยแม่ฟ้าหลวง'],
+      ['maejo university','มหาวิทยาลัยแม่โจ้'],
+      ['mahachulalongkorn buddhist university','มหาวิทยาลัยมหาจุฬาลงกรณราชวิทยาลัย'],
+      ['mahamakut buddhist university','มหาวิทยาลัยมหามกุฏราชวิทยาลัย'],
+      ['mahanakorn university of technology','มหาวิทยาลัยเทคโนโลยีมหานคร'],
+      ['mahasarakham university','มหาวิทยาลัยมหาสารคาม'],
+      ['mahidol university','มหาวิทยาลัยมหิดล'],
+      ['mahidol university international college','วิทยาลัยนานาชาติ มหาวิทยาลัยมหิดล'],
+      ['naresuan university','มหาวิทยาลัยนเรศวร'],
+      ['nation university','มหาวิทยาลัยเนชั่น'],
+      ['national institute of development administration','สถาบันบัณฑิตพัฒนบริหารศาสตร์'],
+      ['nivadhana university','มหาวิทยาลัยณิวัฒนา'],
+      ['pathumthani university','มหาวิทยาลัยปทุมธานี'],
+      ['payap university chaiang mai','มหาวิทยาลัยพายัพ'],
+      ['payap university chiang mai','มหาวิทยาลัยพายัพ'],
+      ['payap university','มหาวิทยาลัยพายัพ'],
+      ['phranakhon si ayutthaya rajabhat university','มหาวิทยาลัยราชภัฏพระนครศรีอยุธยา'],
+      ['prince of songkla university','มหาวิทยาลัยสงขลานครินทร์'],
+      ['rajamangala university of technology, lanna chiang rai','มหาวิทยาลัยเทคโนโลยีราชมงคลล้านนา เชียงราย'],
+      ['rajamangala university of technology, lanna nan','มหาวิทยาลัยเทคโนโลยีราชมงคลล้านนา น่าน'],
+      ['rajamangala university of technology, phra nakhon','มหาวิทยาลัยเทคโนโลยีราชมงคลพระนคร'],
+      ['ramkhamhaeng university','มหาวิทยาลัยรามคำแหง'],
+      ['rangsit university','มหาวิทยาลัยรังสิต'],
+      ['shinawatra university','มหาวิทยาลัยชินวัตร'],
+      ['siam university','มหาวิทยาลัยสยาม'],
+      ['silpakorn university','มหาวิทยาลัยศิลปากร'],
+      ['south-east asia university','มหาวิทยาลัยเอเชียอาคเนย์'],
+      ['srinakharinwirot university','มหาวิทยาลัยศรีนครินทรวิโรฒ'],
+      ['sripatum university','มหาวิทยาลัยศรีปทุม'],
+      ["st. john's university",'มหาวิทยาลัยเซนต์จอห์น'],
+      ['stamford international university','มหาวิทยาลัยนานาชาติแสตมฟอร์ด'],
+      ['suan dusit rajabhat university','มหาวิทยาลัยสวนดุสิต'],
+      ['sukhothai thammathirat open university','มหาวิทยาลัยสุโขทัยธรรมาธิราช'],
+      ['suranaree university of technology','มหาวิทยาลัยเทคโนโลยีสุรนารี'],
+      ['thaksin university','มหาวิทยาลัยทักษิณ'],
+      ['thammasat university','มหาวิทยาลัยธรรมศาสตร์'],
+      ['ubonratchathani university','มหาวิทยาลัยอุบลราชธานี'],
+      ['university of the thai chamber of commerce','มหาวิทยาลัยหอการค้าไทย'],
+      ['vongchavalitkul university','มหาวิทยาลัยวงษ์ชวลิตกุล'],
+      ['walailak university','มหาวิทยาลัยวลัยลักษณ์'],
+      ['webster university thailand','มหาวิทยาลัยเว็บสเตอร์ (ประเทศไทย)'],
+      ['webster university, thailand','มหาวิทยาลัยเว็บสเตอร์ (ประเทศไทย)']
+    ].map(([name,thaiName]) => [normalizeUniversityKey(name), thaiName]));
+    function normalizeUniversityKey(value) {
+      return String(value || '').toLowerCase().replace(/[’'.,()\/-]/g,' ').replace(/\s+/g,' ').trim();
+    }
+    function containsThaiText(value) { return /[\u0E00-\u0E7F]/.test(String(value || '')); }
+    function getThaiUniversityName(item) {
+      if (String(item.country || '').toLowerCase() !== 'thailand') return '';
+      if (containsThaiText(item.name)) return String(item.name).trim();
+      return THAI_UNIVERSITY_NAMES.get(normalizeUniversityKey(item.name)) || '';
+    }
+    function normalizeUniversityItem(item) {
+      const name = String(item.name || '').trim();
+      const country = String(item.country || '').trim();
+      const thaiName = getThaiUniversityName({name,country});
+      const displayName = thaiName && thaiName !== name ? `${thaiName} (${name})` : name;
+      return {name:displayName, originalName:name, country, thaiName, displayName};
+    }
     const FALLBACK_UNIVERSITIES = [
-      ['จุฬาลงกรณ์มหาวิทยาลัย','Thailand'], ['มหาวิทยาลัยธรรมศาสตร์','Thailand'], ['มหาวิทยาลัยมหิดล','Thailand'],
-      ['มหาวิทยาลัยเกษตรศาสตร์','Thailand'], ['มหาวิทยาลัยเชียงใหม่','Thailand'], ['มหาวิทยาลัยขอนแก่น','Thailand'],
+      ['Chulalongkorn University','Thailand'], ['Thammasat University','Thailand'], ['Mahidol University','Thailand'],
+      ['Kasetsart University','Thailand'], ['Chiang Mai University','Thailand'], ['Khon Kaen University','Thailand'],
       ['University of Oxford','United Kingdom'], ['University of Cambridge','United Kingdom'], ['Imperial College London','United Kingdom'],
       ['Harvard University','United States'], ['Stanford University','United States'], ['Massachusetts Institute of Technology','United States'],
       ['University of California, Berkeley','United States'], ['University of Toronto','Canada'], ['University of British Columbia','Canada'],
@@ -372,7 +460,7 @@
       ['Peking University','China'], ['Seoul National University','South Korea'], ['University of Hong Kong','Hong Kong'],
       ['ETH Zurich','Switzerland'], ['Technical University of Munich','Germany'], ['University of Amsterdam','Netherlands'],
       ['University of Paris','France'], ['University of São Paulo','Brazil'], ['University of Cape Town','South Africa']
-    ].map(([name,country]) => ({name,country}));
+    ].map(([name,country]) => normalizeUniversityItem({name,country}));
     const FACULTY_OPTIONS = [
       'บริหารธุรกิจ / Business Administration', 'บัญชี / Accountancy', 'เศรษฐศาสตร์ / Economics', 'กฎหมาย / Law',
       'รัฐศาสตร์ / Political Science', 'ความสัมพันธ์ระหว่างประเทศ / International Relations', 'นิเทศศาสตร์ / Communication Arts',
@@ -448,7 +536,7 @@
         .then(response => { if (!response.ok) throw new Error('university catalog unavailable'); return response.json(); })
         .then(items => {
           const seen = new Set();
-          const normalized = items.map(item => ({ name:String(item.name || '').trim(), country:String(item.country || '').trim() }))
+          const normalized = items.map(item => normalizeUniversityItem(item))
             .filter(item => item.name)
             .filter(item => { const key = (item.name + '|' + item.country).toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true; })
             .sort((a,b) => a.name.localeCompare(b.name));
@@ -501,7 +589,7 @@
       const normalizedQuery = String(query || '').trim().toLowerCase();
       const source = id === 'targetUniversity' ? universityCatalog : FACULTY_OPTIONS;
       const matches = source.filter(item => {
-        const text = id === 'targetUniversity' ? `${item.name} ${item.country}` : item.label;
+        const text = id === 'targetUniversity' ? `${item.displayName || item.name} ${item.name} ${item.thaiName || ''} ${item.country}` : item.label;
         return !normalizedQuery || text.toLowerCase().includes(normalizedQuery);
       }).slice(0, 14);
       const options = matches.map(item => ({ value:id === 'targetUniversity' ? item.name : item.label, label:id === 'targetUniversity' ? item.name : item.label, meta:id === 'targetUniversity' ? item.country : 'คณะ/สาขาทั่วไป', kind:id === 'targetUniversity' ? 'university' : 'faculty' }));
