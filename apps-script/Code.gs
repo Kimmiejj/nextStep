@@ -22,7 +22,7 @@ const APP = {
   ]
 };
 
-const QUESTION_TYPES = ['checkbox', 'radio', 'textarea', 'text', 'university_targets', 'university_targets_10'];
+const QUESTION_TYPES = ['checkbox', 'radio', 'textarea', 'text', 'university_targets', 'university_targets_10', 'exam_scores'];
 const QUESTION_HEADERS = ['id', 'round', 'section', 'type', 'prompt', 'helper', 'options_json', 'required', 'active'];
 
 const RESPONSE_HEADERS = [
@@ -84,7 +84,7 @@ function doGet() {
 function compactQuestionRow_(row) {
   let options = [];
   try {
-    options = JSON.parse(row[6] || '[]').map(option => ({ label: String(option.label || '') }));
+    options = JSON.parse(row[6] || '[]').map(option => Object.assign({}, option, { label: String(option.label || '') }));
   } catch (e) {
     options = [];
   }
@@ -202,14 +202,14 @@ function buildLearningSummary_(questions, answers) {
     if (!bucket) return;
     bucket.total += 1;
     const answer = answers[question.id];
-    if (answer !== undefined && answer !== null && answer !== '' && !(Array.isArray(answer) && answer.length === 0)) bucket.answered += 1;
+    if (answerProvided_(answer)) bucket.answered += 1;
     const topic = String(question.section || '').replace(/Reflection/gi, 'ทบทวนตัวเอง').trim();
     if (topic && bucket.topics.indexOf(topic) < 0) bucket.topics.push(topic);
   });
   const total = questions.length;
   const answered = Object.keys(answers).filter(id => {
     const answer = answers[id];
-    return answer !== undefined && answer !== null && answer !== '' && !(Array.isArray(answer) && answer.length === 0);
+    return answerProvided_(answer);
   }).length;
   return { rounds: rounds, answered: answered, total: total };
 }
@@ -290,7 +290,7 @@ function readQuestions_() {
     if (!round) return null;
     let options = [];
     try { options = row[ix.options_json] ? JSON.parse(row[ix.options_json]) : []; } catch (e) { options = []; }
-    options = options.map(option => ({ label: thaiQuestionText_(option.label) }));
+    options = options.map(option => Object.assign({}, option, { label: thaiQuestionText_(option.label) }));
     return {
       id: String(row[ix.id]), round: round, section: thaiQuestionText_(row[ix.section]), type: normalizeQuestionType_(row[ix.type]),
       prompt: thaiQuestionText_(row[ix.prompt]), helper: thaiQuestionText_(row[ix.helper]), options: options,
@@ -324,6 +324,10 @@ function normalizeQuestionType_(value) {
   return QUESTION_TYPES.indexOf(type) >= 0 ? type : 'radio';
 }
 
+function answerProvided_(answer) {
+  return answer !== undefined && answer !== null && answer !== '' && !(Array.isArray(answer) && answer.length === 0) && !(answer && typeof answer === 'object' && !Array.isArray(answer) && Object.keys(answer).length === 0);
+}
+
 function calculateResult_(questions, answers) {
   const rounds = {};
   APP.rounds.forEach(round => { rounds[round.id] = { id: round.id, title: round.title, subtitle: round.subtitle, score: 0, level: 'เริ่มวางแผน', answered: 0, total: 0 }; });
@@ -333,7 +337,7 @@ function calculateResult_(questions, answers) {
     bucket.total += 1;
     const answer = answers[question.id];
     const score = scoreAnswer_(question, answer);
-    if (answer !== undefined && answer !== null && answer !== '' && !(Array.isArray(answer) && answer.length === 0)) bucket.answered += 1;
+    if (answerProvided_(answer)) bucket.answered += 1;
     if (question.weight > 0) {
       bucket._weighted = (bucket._weighted || 0) + score * question.weight;
       bucket._weight = (bucket._weight || 0) + question.weight;

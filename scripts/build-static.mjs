@@ -37,7 +37,7 @@ function createStaticData() {
       type: String(row[3] || 'radio').toLowerCase(),
       prompt: normalizeText(row[4]),
       helper: normalizeText(row[5]),
-      options: JSON.parse(row[6] || '[]').map(option => ({ label: normalizeText(option.label) })),
+      options: JSON.parse(row[6] || '[]').map(option => ({ ...option, label: normalizeText(option.label) })),
       required: String(row[7]).toUpperCase() === 'TRUE',
     }));
   const sourceLinks = DEFAULT_SOURCE_ROWS.map(row => ({ title: row[1], url: row[2], note: row[3] }));
@@ -87,7 +87,7 @@ function createStaticRuntime(data) {
       const parseOptions = value => {
         try {
           const parsed = JSON.parse(String(value || '[]'));
-          return Array.isArray(parsed) ? parsed.map(option => ({label: String(option?.label || '').trim()})).filter(option => option.label) : [];
+          return Array.isArray(parsed) ? parsed.map(option => ({...option, label: String(option?.label || '').trim()})).filter(option => option.label) : [];
         } catch (error) {
           return [];
         }
@@ -164,7 +164,7 @@ function createStaticRuntime(data) {
       return lines.join(String.fromCharCode(10));
     }
     function staticAnswerProvided(answer) {
-      return answer !== undefined && answer !== null && answer !== '' && !(Array.isArray(answer) && answer.length === 0);
+      return answer !== undefined && answer !== null && answer !== '' && !(Array.isArray(answer) && answer.length === 0) && !(answer && typeof answer === 'object' && !Array.isArray(answer) && Object.keys(answer).length === 0);
     }
     function buildStaticResult(payload) {
       const rounds = {};

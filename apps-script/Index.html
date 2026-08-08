@@ -94,9 +94,20 @@
     .university-target-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
     .university-target-fields .field { gap:5px; }
     .university-target-fields .field-label { color:var(--muted); font-size:12px; }
+    .exam-score-groups { display:grid; gap:16px; margin:15px 0 0 42px; }
+    .exam-score-group { padding:14px; border:1px solid #eee4db; border-radius:15px; background:#fff; }
+    .exam-score-group-title { color:#557084; font-size:14px; font-weight:900; }
+    .exam-score-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:10px; }
+    .exam-score-field { display:grid; gap:6px; padding:10px; border:1px solid #f0e8e0; border-radius:12px; background:#fffefa; }
+    .exam-score-label { color:#4c6679; font-size:12px; line-height:1.45; }
+    .exam-score-input-wrap { display:flex; align-items:center; gap:7px; }
+    .exam-score-input { min-width:0; flex:1; }
+    .exam-score-max { color:var(--muted); font-size:12px; white-space:nowrap; }
     @media (max-width:580px) {
       .university-targets { margin-left:0; }
       .university-target-fields { grid-template-columns:1fr; }
+      .exam-score-groups { margin-left:0; }
+      .exam-score-grid { grid-template-columns:1fr; }
     }
     .radio-fill-wrap textarea { margin:0; width:100%; min-height:82px; background:#fff; }
     .round-note { padding:14px 16px; border-radius:15px; background:#fff4dc; color:#80653e; line-height:1.6; margin-top:18px; }
@@ -691,6 +702,19 @@
       return question.type === 'university_targets_10' ? 10 : 3;
     }
 
+    function isExamScoresQuestion(question) {
+      return question && question.type === 'exam_scores';
+    }
+
+    function scoreOptionsForQuestion(question) {
+      return (Array.isArray(question?.options) ? question.options : []).map((option,index) => ({
+        key: String(option?.key || `score_${index}`),
+        label: String(option?.label || '').trim(),
+        max: Number(option?.max) > 0 ? Number(option.max) : 100,
+        group: String(option?.group || 'คะแนนสอบ').trim() || 'คะแนนสอบ'
+      })).filter(option => option.label);
+    }
+
     function renderUniversityTargetsQuestion(q,i) {
       const answer = Array.isArray(state.answers[q.id]) ? state.answers[q.id] : [];
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
@@ -702,12 +726,29 @@
       return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="university-targets">${rows}</div></article>`;
     }
 
+    function renderExamScoresQuestion(q,i) {
+      const answer = state.answers[q.id] && typeof state.answers[q.id] === 'object' && !Array.isArray(state.answers[q.id]) ? state.answers[q.id] : {};
+      const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
+      const fields = scoreOptionsForQuestion(q);
+      const groups = Array.from(new Set(fields.map(field => field.group)));
+      const groupsMarkup = groups.map(group => {
+        const groupFields = fields.filter(field => field.group === group);
+        const inputs = groupFields.map(field => {
+          const value = answer[field.key] ?? '';
+          return `<label class="exam-score-field"><span class="exam-score-label">${escapeHtml(field.label)}</span><span class="exam-score-input-wrap"><input class="exam-score-input" data-score-key="${escapeAttr(field.key)}" type="number" min="0" max="${field.max}" step="0.01" inputmode="decimal" placeholder="คะแนน" value="${escapeAttr(value)}" oninput="saveExamScoresAnswer('${q.id}')"><span class="exam-score-max">/${field.max}</span></span></label>`;
+        }).join('');
+        return `<section class="exam-score-group"><div class="exam-score-group-title">${escapeHtml(group)}</div><div class="exam-score-grid">${inputs}</div></section>`;
+      }).join('');
+      return `<article class="question-card" data-score-question="${escapeAttr(q.id)}"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="exam-score-groups">${groupsMarkup}</div></article>`;
+    }
+
     function renderQuestion(q,i) {
       const answer = state.answers[q.id];
       const choice = answerChoice(answer);
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
       const isText = q.type === 'textarea' || q.type === 'text';
       if (isUniversityTargetsQuestion(q)) return renderUniversityTargetsQuestion(q,i);
+      if (isExamScoresQuestion(q)) return renderExamScoresQuestion(q,i);
       if (isText) {
         return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<textarea data-answer="${q.id}" placeholder="เขียนคำตอบสั้น ๆ ได้เลย">${escapeHtml(answer || '')}</textarea></article>`;
       }
@@ -726,6 +767,7 @@
       const q = state.questions.find(item => item.id === questionId);
       if (!q) return;
       if (isUniversityTargetsQuestion(q)) { saveUniversityTargetsAnswer(questionId); return; }
+      if (isExamScoresQuestion(q)) { saveExamScoresAnswer(questionId); return; }
       if (q.type === 'checkbox') {
         state.answers[questionId] = Array.from(document.querySelectorAll(`input[name="${questionId}"]:checked`)).map(el => el.value);
         return;
@@ -758,6 +800,18 @@
       })).filter(item => item.university || item.faculty || item.major);
     }
 
+    function saveExamScoresAnswer(questionId) {
+      const answer = {};
+      const fields = Object.fromEntries(scoreOptionsForQuestion(state.questions.find(item => item.id === questionId)).map(field => [field.key, field]));
+      document.querySelectorAll(`[data-score-question="${questionId}"] [data-score-key]`).forEach(input => {
+        const value = input.value.trim();
+        const field = fields[input.dataset.scoreKey];
+        const score = Number(value);
+        if (value !== '' && field && Number.isFinite(score) && score >= 0 && score <= field.max) answer[input.dataset.scoreKey] = score;
+      });
+      state.answers[questionId] = answer;
+    }
+
     function saveRadioFillAnswer(questionId) {
       const q = state.questions.find(item => item.id === questionId);
       const selected = document.querySelector(`input[name="${questionId}"]:checked`);
@@ -769,6 +823,7 @@
     function collectAnswers() {
       state.questions.filter(q => q.round === state.rounds[state.currentRound].id).forEach(q => {
         if (isUniversityTargetsQuestion(q)) saveUniversityTargetsAnswer(q.id);
+        else if (isExamScoresQuestion(q)) saveExamScoresAnswer(q.id);
         else if (q.type === 'textarea' || q.type === 'text') { const el=document.querySelector(`[data-answer="${q.id}"]`); if (el) state.answers[q.id]=el.value.trim(); }
         else saveCurrentAnswer(q.id);
       });
@@ -790,6 +845,9 @@
       if (answer === undefined || answer === null || answer === '' || (Array.isArray(answer) && answer.length === 0)) return false;
       if (isUniversityTargetsQuestion(question)) {
         return Array.isArray(answer) && answer.length > 0 && answer.every(item => item && item.university && item.faculty && item.major);
+      }
+      if (isExamScoresQuestion(question)) {
+        return answer && typeof answer === 'object' && !Array.isArray(answer) && Object.keys(answer).length > 0;
       }
       if (question.type === 'radio') {
         const choice = answerChoice(answer);
@@ -836,6 +894,10 @@
       if (isUniversityTargetsQuestion(question)) {
         const targets = Array.isArray(answer) ? answer : [];
         return targets.map((item,index) => `อันดับ ${index + 1}: ${[item.university, item.faculty, item.major].filter(Boolean).join(' · ')}`).join(' | ') || 'ไม่ได้ตอบ';
+      }
+      if (isExamScoresQuestion(question)) {
+        const scores = scoreOptionsForQuestion(question).filter(field => answer && answer[field.key] !== undefined && answer[field.key] !== '').map(field => `${field.label}: ${answer[field.key]}/${field.max}`);
+        return scores.join(' | ') || 'ไม่ได้กรอกคะแนน';
       }
       if (answer && typeof answer === 'object' && !Array.isArray(answer)) {
         const option = question.options[Number(answer.choice)];

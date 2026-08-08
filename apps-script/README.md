@@ -12,4 +12,5 @@ This folder is kept as the source template for the static build.
 - The `Responses` sheet uses only the 11 active response fields: student profile fields plus `answers_json`; legacy score columns are not used.
 - A `university_targets` question renders three ranked target rows, each with university, faculty, and major fields, and stores the completed rows as an array in `answers_json`.
 - A `university_targets_10` question renders ten ranked target rows with the same fields.
+- An `exam_scores` question renders score inputs from its `options_json`, grouped by exam family, and stores only the scores the student entered.
 - Nothing in this folder is deployed to or executed by Google Apps Script.
