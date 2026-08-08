@@ -66,7 +66,7 @@
     .primary-button:hover { transform:translateY(-1px); box-shadow:0 8px 0 #5f8fc7; }
     .secondary-button { color:#587084; background:#eaf5f4; }
     .danger-button { color:#b45b5b; background:#fff0ed; }
-    .round-tabs { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:22px; }
+    .round-tabs { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:22px; }
     .round-tab { text-align:left; padding:15px; border-radius:16px; background:#fff8f0; color:#7b8490; font-weight:800; border:1px solid #f1e4d8; }
     .round-tab.active { color:#557db2; background:#e9f3ff; border-color:#c8def3; }
     .round-tab span { display:block; font-size:12px; font-weight:600; margin-top:4px; color:var(--muted); }
@@ -125,7 +125,7 @@
     .guidance-icon { width:58px; height:58px; display:grid; place-items:center; flex:0 0 auto; border-radius:18px; background:#fff6d7; font-size:30px; }
     .guidance-hero h2 { color:#365c7f; }
     .guidance-hero p { margin:8px 0 0; line-height:1.7; color:#607a91; }
-    .result-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:18px; }
+    .result-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-top:18px; }
     .result-card { padding:17px; border:1px solid var(--line); border-radius:18px; background:#fff; }
     .result-card .round-name { color:var(--muted); font-size:13px; font-weight:750; }
     .result-card-topic { margin-top:9px; color:#365c7f; font-size:14px; font-weight:800; line-height:1.5; }
@@ -244,7 +244,7 @@
       .guidance-icon { width:46px; height:46px; border-radius:14px; font-size:23px; }
       .guidance-hero h2 { color:#2f5d55; font-size:18px; }
       .guidance-hero p { color:#5d766f; font-size:11px; line-height:1.6; }
-      .result-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:14px; }
+      .result-grid { grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; margin-top:14px; }
       .result-card { min-height:92px; padding:11px; border:1px solid #e0e8ee; border-radius:12px; background:#fbfdff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
       .result-card .round-name { color:#61788b; font-size:10px; }
       .result-card-topic { margin-top:7px; color:#315d7f; font-size:11px; }
@@ -516,7 +516,7 @@
       app().innerHTML = `
         <section class="hero no-print">
           <div class="hero-copy"><span class="eyebrow">${escapeHtml(state.config.ACADEMIC_YEAR || 'TCAS70')}</span><h1>มาค้นหาทางของเรา<br><span style="color:var(--primary)">ไปมหาวิทยาลัย</span> แบบสบาย ๆ</h1><p>ตอบคำถามสั้น ๆ เหมือนคุยกับตัวเอง แล้วมาดูกันว่าเราถนัดอะไร อยากพัฒนาอะไร และรอบไหนน่าลองบ้าง</p></div>
-          <div class="hero-art"><h2>4 รอบ 4 ทางเลือก ✨</h2><div class="path">${state.rounds.map((r,i)=>`<div class="path-item"><div class="path-icon">${i+1}</div><div><strong>${escapeHtml(roundTitle(r,i).replace(/^รอบที่ \d+ /,''))}</strong><div style="opacity:.78;font-size:12px">${escapeHtml(r.subtitle)}</div></div></div>`).join('')}</div></div>
+          <div class="hero-art"><h2>${state.rounds.length} หัวข้อการวางแผน ✨</h2><div class="path">${state.rounds.map((r,i)=>`<div class="path-item"><div class="path-icon">${i+1}</div><div><strong>${escapeHtml(roundTitle(r,i).replace(/^รอบที่ \d+ /,''))}</strong><div style="opacity:.78;font-size:12px">${escapeHtml(r.subtitle)}</div></div></div>`).join('')}</div></div>
         </section>
         <section class="card no-print"><div class="section-heading"><div><h2>เริ่มจากเล่าเรื่องของเรา 📝</h2><div class="muted small" style="margin-top:6px">ใช้เวลาประมาณ 5–8 นาที · ค่อย ๆ ตอบตามความรู้สึกได้เลย</div></div><span class="pill">ไม่มีคำตอบผิดนะ</span></div>
           <div class="grid-form" id="profileForm">
@@ -916,7 +916,7 @@
     }
 
     function roundTitle(round, index) {
-      const thaiNames = ['แฟ้มสะสมผลงาน', 'โควตา', 'แอดมิชชัน', 'รับตรงอิสระ'];
+      const thaiNames = ['แฟ้มสะสมผลงาน', 'โควตา', 'แอดมิชชัน', 'รับตรงอิสระ', 'Note เพิ่มเติม'];
       return `รอบที่ ${index + 1} ${thaiNames[index] || String(round.title || '').replace(/^รอบที่?\s*\d+\s*/, '')}`;
     }
 

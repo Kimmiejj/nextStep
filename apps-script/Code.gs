@@ -18,7 +18,8 @@ const APP = {
     { id: 'R1', title: 'รอบที่ 1 แฟ้มสะสมผลงาน', subtitle: 'แฟ้มสะสมผลงานและตัวตนของเรา', tone: 'violet' },
     { id: 'R2', title: 'รอบที่ 2 โควตา', subtitle: 'โควตาพื้นที่และคุณสมบัติเฉพาะ', tone: 'blue' },
     { id: 'R3', title: 'รอบที่ 3 แอดมิชชัน', subtitle: 'คะแนน TGAT/TPAT และ A-Level', tone: 'orange' },
-    { id: 'R4', title: 'รอบที่ 4 รับตรงอิสระ', subtitle: 'ติดตามประกาศและสมัครกับมหาวิทยาลัย', tone: 'green' }
+    { id: 'R4', title: 'รอบที่ 4 รับตรงอิสระ', subtitle: 'ติดตามประกาศและสมัครกับมหาวิทยาลัย', tone: 'green' },
+    { id: 'NOTE', title: 'Note เพิ่มเติม', subtitle: 'ข้อมูลเพิ่มเติมสำหรับใช้ประกอบการวางแผน', tone: 'yellow' }
   ]
 };
 
