@@ -105,12 +105,20 @@
     .exam-score-max { color:var(--muted); font-size:12px; white-space:nowrap; }
     .conditional-target-wrap { margin:12px 0 0 42px; }
     .conditional-target-wrap.is-hidden { display:none; }
+    .star-rating { display:grid; grid-template-columns:repeat(10,minmax(30px,1fr)); gap:7px; margin:16px 0 0 42px; max-width:620px; }
+    .star-rating-button { min-height:45px; padding:3px; border:1px solid #eee4db; border-radius:12px; color:#d3d9de; background:#fff; font-size:27px; line-height:1; cursor:pointer; transition:transform .15s ease,background .15s ease,border-color .15s ease,color .15s ease; }
+    .star-rating-button:hover,.star-rating-button:focus-visible { color:#efb83e; background:#fff9e8; border-color:#f0d58e; transform:translateY(-1px); outline:none; }
+    .star-rating-button.is-selected { color:#f2b63f; background:#fff8e5; border-color:#f1d184; }
+    .star-rating-hint { display:flex; justify-content:space-between; gap:10px; margin:9px 0 0 42px; max-width:620px; color:var(--muted); font-size:12px; }
+    .star-rating-hint strong { color:#9a7530; font-size:13px; }
     @media (max-width:580px) {
       .university-targets { margin-left:0; }
       .university-target-fields { grid-template-columns:1fr; }
       .exam-score-groups { margin-left:0; }
       .exam-score-grid { grid-template-columns:1fr; }
       .conditional-target-wrap { margin-left:0; }
+      .star-rating { margin-left:0; grid-template-columns:repeat(5,minmax(42px,1fr)); gap:8px; }
+      .star-rating-hint { margin-left:0; }
     }
     .radio-fill-wrap textarea { margin:0; width:100%; min-height:82px; background:#fff; }
     .round-note { padding:14px 16px; border-radius:15px; background:#fff4dc; color:#80653e; line-height:1.6; margin-top:18px; }
@@ -713,6 +721,29 @@
       return question && question.type === 'exam_scores';
     }
 
+    function isStarRatingQuestion(question) {
+      return question && question.type === 'star_rating';
+    }
+
+    function starRatingScale(question) {
+      const configured = (Array.isArray(question?.options) ? question.options : [])
+        .map((option,index) => Number(option?.value ?? option?.rating ?? option?.label ?? index + 1))
+        .filter(value => Number.isInteger(value) && value >= 1);
+      return Math.min(10, Math.max(1, configured.length ? Math.max(...configured) : 10));
+    }
+
+    function renderStarRatingQuestion(q,i) {
+      const max = starRatingScale(q);
+      const rawAnswer = Number(state.answers[q.id]);
+      const answer = Number.isInteger(rawAnswer) && rawAnswer >= 1 && rawAnswer <= max ? rawAnswer : 0;
+      const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
+      const stars = Array.from({length:max}, (_,index) => {
+        const rating = index + 1;
+        return `<button type="button" class="star-rating-button ${rating <= answer ? 'is-selected' : ''}" data-star-value="${rating}" aria-label="ระดับ ${rating} จาก ${max}" aria-pressed="${rating === answer ? 'true' : 'false'}" onclick="saveStarRatingAnswer('${q.id}', ${rating})">★</button>`;
+      }).join('');
+      return `<article class="question-card" data-star-question="${escapeAttr(q.id)}"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="star-rating" role="group" aria-label="เลือกระดับ 1 ถึง ${max}">${stars}</div><div class="star-rating-hint"><span>1 น้อยที่สุด</span><strong id="${escapeAttr(q.id)}RatingValue">${answer ? `ระดับ ${answer}/${max}` : 'ยังไม่ได้เลือก'}</strong><span>${max} มากที่สุด</span></div></article>`;
+    }
+
     function scoreOptionsForQuestion(question) {
       return (Array.isArray(question?.options) ? question.options : []).map((option,index) => ({
         key: String(option?.key || `score_${index}`),
@@ -768,6 +799,7 @@
       const choice = answerChoice(answer);
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
       const isText = q.type === 'textarea' || q.type === 'text';
+      if (isStarRatingQuestion(q)) return renderStarRatingQuestion(q,i);
       if (isConditionalUniversityTargetsQuestion(q)) return renderConditionalUniversityTargetsQuestion(q,i);
       if (isUniversityTargetsQuestion(q)) return renderUniversityTargetsQuestion(q,i);
       if (isExamScoresQuestion(q)) return renderExamScoresQuestion(q,i);
@@ -839,6 +871,22 @@
       if (wrap) wrap.classList.toggle('is-hidden', choice !== '0');
     }
 
+    function saveStarRatingAnswer(questionId, value) {
+      const question = state.questions.find(item => item.id === questionId);
+      if (!isStarRatingQuestion(question)) return;
+      const max = starRatingScale(question);
+      const rating = Number(value);
+      if (!Number.isInteger(rating) || rating < 1 || rating > max) return;
+      state.answers[questionId] = rating;
+      document.querySelectorAll(`[data-star-question="${questionId}"] [data-star-value]`).forEach(button => {
+        const buttonValue = Number(button.dataset.starValue);
+        button.classList.toggle('is-selected', buttonValue <= rating);
+        button.setAttribute('aria-pressed', buttonValue === rating ? 'true' : 'false');
+      });
+      const valueLabel = document.getElementById(`${questionId}RatingValue`);
+      if (valueLabel) valueLabel.textContent = `ระดับ ${rating}/${max}`;
+    }
+
     function clampExamScoreInput(input, max) {
       if (!input) return;
       const numericMax = Number(max);
@@ -874,6 +922,10 @@
         if (isConditionalUniversityTargetsQuestion(q)) saveConditionalUniversityTargetsAnswer(q.id);
         else if (isUniversityTargetsQuestion(q)) saveUniversityTargetsAnswer(q.id);
         else if (isExamScoresQuestion(q)) saveExamScoresAnswer(q.id);
+        else if (isStarRatingQuestion(q)) {
+          const selected = document.querySelector(`[data-star-question="${q.id}"] [data-star-value][aria-pressed="true"]`);
+          if (selected) state.answers[q.id] = Number(selected.dataset.starValue);
+        }
         else if (q.type === 'textarea' || q.type === 'text') { const el=document.querySelector(`[data-answer="${q.id}"]`); if (el) state.answers[q.id]=el.value.trim(); }
         else saveCurrentAnswer(q.id);
       });
@@ -960,6 +1012,11 @@
       if (isExamScoresQuestion(question)) {
         const scores = scoreOptionsForQuestion(question).filter(field => answer && answer[field.key] !== undefined && answer[field.key] !== '').map(field => `${field.label}: ${answer[field.key]}/${field.max}`);
         return scores.join(' | ') || 'ไม่ได้กรอกคะแนน';
+      }
+      if (isStarRatingQuestion(question)) {
+        const rating = Number(answer);
+        const max = starRatingScale(question);
+        return Number.isInteger(rating) && rating >= 1 && rating <= max ? `ระดับ ${rating}/${max} ★` : 'ไม่ได้ตอบ';
       }
       if (answer && typeof answer === 'object' && !Array.isArray(answer)) {
         const option = question.options[Number(answer.choice)];
