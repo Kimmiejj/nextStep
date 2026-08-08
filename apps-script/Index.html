@@ -533,9 +533,9 @@
             ${field('firstName','ชื่อจริง','เช่น พิมพ์ชนก','text',false)}
             ${field('lastName','นามสกุล','เช่น ใจดี','text',false)}
             ${field('nickname','ชื่อเล่น','เช่น พิม','text',false)}
-            ${field('classLevel','ชั้น (1–6)','กรอก 1 ถึง 6','number',false,'min="1" max="6" step="1" inputmode="numeric"')}
-            ${field('room','ห้อง (1–15)','กรอก 1 ถึง 15','number',false,'min="1" max="15" step="1" inputmode="numeric"')}
-            ${field('number','เลขที่ (1–60)','กรอก 1 ถึง 60','number',false,'min="1" max="60" step="1" inputmode="numeric"')}
+            ${field('classLevel','ชั้น (1–6)','กรอก 1 ถึง 6','number',false,'min="1" max="6" step="1" inputmode="numeric" oninput="clampProfileNumber(this, 1, 6)"')}
+            ${field('room','ห้อง (1–15)','กรอก 1 ถึง 15','number',false,'min="1" max="15" step="1" inputmode="numeric" oninput="clampProfileNumber(this, 1, 15)"')}
+            ${field('number','เลขที่ (1–60)','กรอก 1 ถึง 60','number',false,'min="1" max="60" step="1" inputmode="numeric" oninput="clampProfileNumber(this, 1, 60)"')}
             ${field('targetUniversity','มหาวิทยาลัยที่สนใจ','เช่น มหาวิทยาลัย…','text',true)}
             ${field('targetFaculty','คณะ/สาขาที่สนใจ','เช่น วิศวกรรมคอมพิวเตอร์','text',true)}
           </div>
@@ -546,6 +546,14 @@
     function field(id,label,placeholder,type,wide,extra='') {
       if (id === 'targetUniversity' || id === 'targetFaculty') return pickerField(id,label,placeholder,wide);
       return `<div class="field ${wide?'wide':''}"><label class="field-label" for="${id}">${label}</label><input id="${id}" type="${type}" placeholder="${placeholder}" autocomplete="off" ${extra}></div>`;
+    }
+
+    function clampProfileNumber(input, min, max) {
+      if (!input || input.value === '') return;
+      const value = Number(input.value);
+      if (!Number.isFinite(value)) return;
+      if (value < min) input.value = String(min);
+      if (value > max) input.value = String(max);
     }
 
     function pickerField(id,label,placeholder,wide) {
