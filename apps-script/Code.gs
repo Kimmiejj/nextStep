@@ -22,7 +22,7 @@ const APP = {
   ]
 };
 
-const QUESTION_TYPES = ['checkbox', 'radio', 'textarea', 'text', 'university_targets'];
+const QUESTION_TYPES = ['checkbox', 'radio', 'textarea', 'text', 'university_targets', 'university_targets_10'];
 const QUESTION_HEADERS = ['id', 'round', 'section', 'type', 'prompt', 'helper', 'options_json', 'required', 'active'];
 
 const RESPONSE_HEADERS = [

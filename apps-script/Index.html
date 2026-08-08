@@ -683,6 +683,14 @@
       return answer && typeof answer === 'object' && !Array.isArray(answer) ? String(answer.text ?? '') : '';
     }
 
+    function isUniversityTargetsQuestion(question) {
+      return question && (question.type === 'university_targets' || question.type === 'university_targets_10');
+    }
+
+    function universityTargetLimit(question) {
+      return question.type === 'university_targets_10' ? 10 : 3;
+    }
+
     function renderUniversityTargetsQuestion(q,i) {
       const answer = Array.isArray(state.answers[q.id]) ? state.answers[q.id] : [];
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
@@ -690,7 +698,7 @@
         const value = answer[index]?.[key] || '';
         return `<label class="field"><span class="field-label">${label}</span><input data-target-field="${key}" type="text" placeholder="${placeholder}" value="${escapeAttr(value)}" oninput="saveUniversityTargetsAnswer('${q.id}')"></label>`;
       };
-      const rows = Array.from({length:3}, (_, index) => `<div class="university-target-row" data-target-row="${q.id}"><div class="university-target-rank">อันดับที่ ${index + 1}</div><div class="university-target-fields">${targetField(index,'university','มหาวิทยาลัย','เช่น จุฬาลงกรณ์มหาวิทยาลัย')}${targetField(index,'faculty','คณะ','เช่น วิศวกรรมศาสตร์')}${targetField(index,'major','สาขา','เช่น วิศวกรรมคอมพิวเตอร์')}</div></div>`).join('');
+      const rows = Array.from({length:universityTargetLimit(q)}, (_, index) => `<div class="university-target-row" data-target-row="${q.id}"><div class="university-target-rank">อันดับที่ ${index + 1}</div><div class="university-target-fields">${targetField(index,'university','มหาวิทยาลัย','เช่น จุฬาลงกรณ์มหาวิทยาลัย')}${targetField(index,'faculty','คณะ','เช่น วิศวกรรมศาสตร์')}${targetField(index,'major','สาขา','เช่น วิศวกรรมคอมพิวเตอร์')}</div></div>`).join('');
       return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="university-targets">${rows}</div></article>`;
     }
 
@@ -699,7 +707,7 @@
       const choice = answerChoice(answer);
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
       const isText = q.type === 'textarea' || q.type === 'text';
-      if (q.type === 'university_targets') return renderUniversityTargetsQuestion(q,i);
+      if (isUniversityTargetsQuestion(q)) return renderUniversityTargetsQuestion(q,i);
       if (isText) {
         return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<textarea data-answer="${q.id}" placeholder="เขียนคำตอบสั้น ๆ ได้เลย">${escapeHtml(answer || '')}</textarea></article>`;
       }
@@ -717,7 +725,7 @@
     function saveCurrentAnswer(questionId) {
       const q = state.questions.find(item => item.id === questionId);
       if (!q) return;
-      if (q.type === 'university_targets') { saveUniversityTargetsAnswer(questionId); return; }
+      if (isUniversityTargetsQuestion(q)) { saveUniversityTargetsAnswer(questionId); return; }
       if (q.type === 'checkbox') {
         state.answers[questionId] = Array.from(document.querySelectorAll(`input[name="${questionId}"]:checked`)).map(el => el.value);
         return;
@@ -760,7 +768,7 @@
 
     function collectAnswers() {
       state.questions.filter(q => q.round === state.rounds[state.currentRound].id).forEach(q => {
-        if (q.type === 'university_targets') saveUniversityTargetsAnswer(q.id);
+        if (isUniversityTargetsQuestion(q)) saveUniversityTargetsAnswer(q.id);
         else if (q.type === 'textarea' || q.type === 'text') { const el=document.querySelector(`[data-answer="${q.id}"]`); if (el) state.answers[q.id]=el.value.trim(); }
         else saveCurrentAnswer(q.id);
       });
@@ -780,7 +788,7 @@
 
     function answerIsComplete(question, answer) {
       if (answer === undefined || answer === null || answer === '' || (Array.isArray(answer) && answer.length === 0)) return false;
-      if (question.type === 'university_targets') {
+      if (isUniversityTargetsQuestion(question)) {
         return Array.isArray(answer) && answer.length > 0 && answer.every(item => item && item.university && item.faculty && item.major);
       }
       if (question.type === 'radio') {
@@ -825,7 +833,7 @@
 
     function answerForPrint(question, answer) {
       if (question.type === 'textarea' || question.type === 'text') return String(answer || '').trim() || 'ไม่ได้ตอบ';
-      if (question.type === 'university_targets') {
+      if (isUniversityTargetsQuestion(question)) {
         const targets = Array.isArray(answer) ? answer : [];
         return targets.map((item,index) => `อันดับ ${index + 1}: ${[item.university, item.faculty, item.major].filter(Boolean).join(' · ')}`).join(' | ') || 'ไม่ได้ตอบ';
       }
