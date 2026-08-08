@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#fff7e9">
+  <title>TCAS Compass</title>
+  <style>
+    :root { --ink:#3b4756; --muted:#7d8895; --line:#eee5dc; --surface:#fffefa; --bg:#fffaf2; --primary:#6d9fdf; --primary2:#83c8b0; --green:#72b89d; --orange:#e6b36f; --pink:#e9a9bd; --shadow:0 14px 35px rgba(130,112,93,.13); }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Noto Sans Thai", "Noto Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; color:var(--ink); background-color:#fffaf2; background-image:radial-gradient(#e8f1f5 1.2px,transparent 1.2px); background-size:28px 28px; min-height:100vh; }
+    button,input,select,textarea { font:inherit; }
+    button { cursor:pointer; border:0; }
+    .app-shell { max-width:1180px; margin:0 auto; padding:28px 20px 60px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:28px; }
+    .brand { display:flex; align-items:center; gap:12px; font-weight:800; letter-spacing:-.03em; }
+    .brand-mark { width:42px; height:42px; display:grid; place-items:center; border-radius:15px; color:#8a6b3f; background:#ffdb92; box-shadow:0 8px 18px rgba(226,179,111,.26); font-size:22px; transform:rotate(-4deg); }
+    .brand small { display:block; color:var(--muted); font-weight:500; letter-spacing:0; margin-top:2px; }
+    .link-button { background:#fff1c9; color:#80633d; font-weight:800; padding:10px 14px; border-radius:999px; }
+    .link-button:hover { background:#ffe5a7; }
+    .hero { display:grid; grid-template-columns:1.12fr .88fr; gap:28px; align-items:stretch; margin-bottom:24px; }
+    .hero-copy,.card { background:rgba(255,254,250,.94); border:1px solid #f0e6dc; border-radius:26px; box-shadow:var(--shadow); }
+    .hero-copy { padding:40px; position:relative; overflow:hidden; }
+    .hero-copy:after { content:""; position:absolute; width:210px; height:210px; border-radius:50%; background:#dff2ee; right:-84px; top:-90px; z-index:0; }
+    .hero-copy > * { position:relative; z-index:1; }
+    .eyebrow { display:inline-flex; padding:7px 11px; background:#fff1c9; color:#89683d; border-radius:999px; font-size:13px; font-weight:800; margin-bottom:16px; }
+    h1 { margin:0; font-size:clamp(30px,4vw,50px); line-height:1.12; letter-spacing:-.035em; max-width:680px; }
+    .hero-copy p { font-size:17px; line-height:1.7; color:var(--muted); max-width:620px; margin:18px 0 0; }
+    .hero-art { border-radius:26px; padding:26px; color:#4d6c64; background:#e6f3ed; border:1px solid #d4ebe0; box-shadow:var(--shadow); min-height:310px; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; position:relative; }
+    .hero-art:before,.hero-art:after { content:""; position:absolute; border:2px dashed rgba(108,169,145,.22); border-radius:50%; }
+    .hero-art:before { width:280px;height:280px;right:-90px;top:-80px; }
+    .hero-art:after { width:180px;height:180px;left:-80px;bottom:-80px; }
+    .hero-art h2 { font-size:21px; margin:0; position:relative; z-index:1; }
+    .path { display:grid; gap:12px; position:relative; z-index:1; }
+    .path-item { display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:16px; background:#fffdf8; border:1px solid #d4e9df; box-shadow:0 5px 0 rgba(116,173,150,.10); }
+    .path-icon { width:34px; height:34px; border-radius:12px; display:grid; place-items:center; background:#cfe9ff; color:#5684cb; font-weight:900; }
+    .card { padding:26px; }
+    .section-heading { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; margin-bottom:20px; }
+    h2,h3 { margin:0; letter-spacing:-.035em; }
+    .muted { color:var(--muted); }
+    .small { font-size:13px; }
+    .grid-form { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+    .field { display:grid; gap:8px; }
+    .field.wide { grid-column:span 2; }
+    label.field-label { font-weight:750; font-size:14px; }
+    input,select,textarea { width:100%; border:1px solid #eadfd5; border-radius:15px; padding:12px 13px; background:#fffefa; color:var(--ink); outline:none; transition:.18s ease; }
+    textarea { min-height:120px; resize:vertical; line-height:1.6; }
+    input:focus,select:focus,textarea:focus { border-color:#8cb7e7; box-shadow:0 0 0 4px #eaf4ff; }
+    .picker { position:relative; }
+    .picker input { padding-right:42px; }
+    .picker:after { content:'⌄'; position:absolute; right:15px; top:50%; transform:translateY(-52%); color:#7d9bb4; pointer-events:none; font-size:18px; }
+    .picker-menu { position:absolute; z-index:20; left:0; right:0; top:calc(100% + 7px); display:grid; gap:5px; max-height:280px; overflow:auto; padding:7px; background:#fff; border:1px solid #dfe9ee; border-radius:16px; box-shadow:0 18px 35px rgba(69,91,112,.18); }
+    .picker-menu[hidden] { display:none; }
+    .picker-option { display:grid; gap:3px; width:100%; padding:10px 11px; border-radius:11px; text-align:left; color:var(--ink); background:#fff; border:1px solid transparent; }
+    .picker-option:hover,.picker-option:focus { background:#edf7ff; border-color:#c9e2f4; outline:none; }
+    .picker-option strong { font-size:14px; line-height:1.35; }
+    .picker-option small { color:var(--muted); font-size:12px; line-height:1.35; }
+    .picker-option.other { background:#fff8e9; color:#80633d; border-color:#f3dfb4; }
+    .field-hint { min-height:18px; color:var(--muted); font-size:12px; line-height:1.45; }
+    .is-hidden { display:none !important; }
+    input:disabled { cursor:not-allowed; opacity:.65; background:#f6f8f8; }
+    .actions { display:flex; justify-content:flex-end; gap:12px; margin-top:22px; flex-wrap:wrap; }
+    .primary-button,.secondary-button,.danger-button { min-height:45px; padding:0 18px; border-radius:15px; font-weight:800; transition:transform .16s ease,box-shadow .16s ease; }
+    .primary-button { color:#fff; background:#78a7df; box-shadow:0 7px 0 #5f8fc7; }
+    .primary-button:hover { transform:translateY(-1px); box-shadow:0 8px 0 #5f8fc7; }
+    .secondary-button { color:#587084; background:#eaf5f4; }
+    .danger-button { color:#b45b5b; background:#fff0ed; }
+    .round-tabs { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:22px; }
+    .round-tab { text-align:left; padding:15px; border-radius:16px; background:#fff8f0; color:#7b8490; font-weight:800; border:1px solid #f1e4d8; }
+    .round-tab.active { color:#557db2; background:#e9f3ff; border-color:#c8def3; }
+    .round-tab span { display:block; font-size:12px; font-weight:600; margin-top:4px; color:var(--muted); }
+    .progress-wrap { display:flex; justify-content:space-between; gap:12px; align-items:center; margin:0 0 18px; color:var(--muted); font-size:13px; }
+    .progress { height:8px; background:#e8f0f4; border-radius:99px; overflow:hidden; flex:1; }
+    .progress > div { height:100%; border-radius:inherit; background:#82c4ad; transition:width .25s ease; }
+    .question-list { display:grid; gap:14px; }
+    .question-card { border:1px solid var(--line); border-radius:20px; padding:18px; background:#fffefa; }
+    .question-top { display:flex; gap:12px; align-items:flex-start; }
+    .question-no { min-width:30px;height:30px;border-radius:11px;display:grid;place-items:center;background:#ffe5ee;color:#c27391;font-weight:900;font-size:13px; }
+    .question-card h3 { font-size:16px; line-height:1.45; }
+    .question-helper { margin:6px 0 0 42px; color:var(--muted); font-size:13px; line-height:1.5; }
+    .options { display:grid; gap:9px; margin:15px 0 0 42px; }
+    .option { display:flex; align-items:flex-start; gap:10px; padding:12px 13px; border:1px solid #eee4db; border-radius:15px; line-height:1.5; cursor:pointer; transition:.15s; }
+    .option:hover { background:#fff7ef; border-color:#efd2bd; }
+    .option:has(input:checked) { background:#edf9f4; border-color:#a8d9c9; }
+    .option input { width:18px; height:18px; accent-color:#64b99d; margin:2px 0 0; flex:0 0 auto; }
+    .question-card textarea { margin:15px 0 0 42px; width:calc(100% - 42px); }
+    .radio-fill-wrap { margin:10px 0 0 42px; padding:13px; border:1px dashed #b8d5e2; border-radius:15px; background:#f6fbfd; }
+    .radio-fill-wrap.is-hidden { display:none; }
+    .radio-fill-wrap label { display:block; color:#557084; font-size:13px; font-weight:800; margin-bottom:7px; }
+    .radio-fill-wrap textarea { margin:0; width:100%; min-height:82px; background:#fff; }
+    .round-note { padding:14px 16px; border-radius:15px; background:#fff4dc; color:#80653e; line-height:1.6; margin-top:18px; }
+    .result-hero { display:grid; grid-template-columns:190px 1fr; gap:26px; align-items:center; padding:25px; background:#e7f2ff; border:1px solid #cfe2f5; color:#496681; border-radius:24px; }
+    .score-ring { width:160px;height:160px;border-radius:50%; display:grid;place-items:center; background:conic-gradient(#fff 0 74%,rgba(255,255,255,.18) 74% 100%); position:relative; margin:auto; }
+    .score-ring:after { content:""; position:absolute; inset:12px; background:#fffefa; border-radius:50%; }
+    .score-inner { position:relative;z-index:1;text-align:center; }
+    .score-number { display:block; font-size:36px; font-weight:900; line-height:1; }
+    .score-label { font-size:12px; opacity:.82; }
+    .result-hero p { margin:8px 0 0; line-height:1.6; color:#607a91; }
+    .guidance-hero { display:flex; align-items:flex-start; gap:18px; padding:22px 24px; background:#e7f2ff; border:1px solid #cfe2f5; color:#496681; border-radius:24px; }
+    .guidance-icon { width:58px; height:58px; display:grid; place-items:center; flex:0 0 auto; border-radius:18px; background:#fff6d7; font-size:30px; }
+    .guidance-hero h2 { color:#365c7f; }
+    .guidance-hero p { margin:8px 0 0; line-height:1.7; color:#607a91; }
+    .result-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:18px; }
+    .result-card { padding:17px; border:1px solid var(--line); border-radius:18px; background:#fff; }
+    .result-card .round-name { color:var(--muted); font-size:13px; font-weight:750; }
+    .result-card-topic { margin-top:9px; color:#365c7f; font-size:14px; font-weight:800; line-height:1.5; }
+    .result-score { font-size:30px; font-weight:900; margin:8px 0 4px; }
+    .pill { display:inline-flex; padding:6px 10px; border-radius:999px; background:#eaf4ff; color:#557fc4; font-size:12px; font-weight:850; }
+    .source-list { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .source-chip { color:#557fc4; background:#eaf4ff; border-radius:999px; padding:8px 11px; font-size:12px; text-decoration:none; }
+    .notice { padding:14px 16px; background:#fff8e9; color:#784d00; border:1px solid #f8dfaa; border-radius:14px; line-height:1.6; }
+    .teacher-login { max-width:480px; margin:50px auto; }
+    .teacher-login .card { padding:30px; }
+    .dashboard-toolbar { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .dashboard-toolbar .field { min-width:150px; flex:1; }
+    .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:18px; }
+    .stat { padding:18px; background:#fffdfb; border:1px solid var(--line); border-radius:18px; }
+    .stat-label { color:var(--muted); font-size:13px; }
+    .stat-value { font-size:28px; font-weight:900; margin-top:7px; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:16px; background:#fff; }
+    table { width:100%; border-collapse:collapse; min-width:920px; }
+    th,td { text-align:left; padding:12px 13px; border-bottom:1px solid #eef0f4; font-size:13px; white-space:nowrap; }
+    th { color:#4d5668; background:#f8f9fc; font-size:12px; }
+    tr:last-child td { border-bottom:0; }
+    tr.clickable { cursor:pointer; }
+    tr.clickable:hover td { background:#fafaff; }
+    .empty { text-align:center; color:var(--muted); padding:34px; }
+    .modal-backdrop { position:fixed; inset:0; display:grid; place-items:center; padding:18px; background:rgba(20,24,45,.48); z-index:50; }
+    .modal { max-width:720px; width:100%; max-height:85vh; overflow:auto; background:#fff; border-radius:22px; padding:24px; box-shadow:0 30px 80px rgba(0,0,0,.25); }
+    .modal-head { display:flex; justify-content:space-between; gap:12px; align-items:start; }
+    .icon-button { width:36px;height:36px;border-radius:50%;background:#f0f2f7;color:#495166;font-weight:900; }
+    .detail-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:18px 0; }
+    .detail-item { background:#f2f8fa; border-radius:13px; padding:12px; }
+    .detail-item small { display:block; color:var(--muted); margin-bottom:3px; }
+    .loading { display:grid; place-items:center; min-height:180px; color:var(--muted); }
+    .spinner { width:28px;height:28px;border:3px solid #e1edf2;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:60; background:#20283a; color:#fff; padding:12px 16px; border-radius:12px; box-shadow:var(--shadow); }
+    .print-only { display:none; }
+    .print-profile { padding:0 0 16px; border-bottom:2px solid #e8eef3; margin-bottom:18px; }
+    .print-profile-title { font-size:22px; margin:0 0 14px; color:#3d5874; }
+    .print-profile-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:9px; }
+    .print-profile-item { padding:10px 12px; background:#f7fbfd; border:1px solid #e1edf2; border-radius:10px; }
+    .print-profile-item small { display:block; color:#7b8b98; font-size:11px; margin-bottom:3px; }
+    .print-profile-item strong { display:block; font-size:14px; overflow-wrap:anywhere; }
+    .print-rounds { margin-top:20px; }
+    .print-round { border:1px solid #dfe9ee; border-radius:13px; padding:14px 16px; margin-top:14px; break-inside:avoid; page-break-inside:avoid; }
+    .print-round-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:10px; border-bottom:1px solid #e8eef3; color:#4d6c64; }
+    .print-round-head strong { color:#557fc4; font-size:18px; white-space:nowrap; }
+    .print-question { padding:11px 0; border-bottom:1px dashed #e3ebef; break-inside:avoid; page-break-inside:avoid; }
+    .print-question:last-child { border-bottom:0; padding-bottom:0; }
+    .print-question-prompt { font-weight:800; line-height:1.5; }
+    .print-question-no { color:#c27391; margin-right:6px; }
+    .print-answer { margin-top:5px; color:#607487; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .print-answer-label { color:#92a0aa; font-size:11px; margin-right:5px; }
+    .student-response-section { margin-top:22px; }
+    .student-response-section-title { margin:0; color:#3d5874; font-size:20px; }
+    .student-response-section-note { margin:6px 0 0; color:var(--muted); font-size:13px; }
+    .student-response-round { margin-top:14px; padding:15px 16px; border:1px solid #b9cad7; border-left:5px solid #78a7df; border-radius:12px; background:#fff; break-inside:avoid; page-break-inside:avoid; }
+    .student-response-round:nth-child(3n) { border-left-color:#82c4ad; }
+    .student-response-round:nth-child(4n) { border-left-color:#e6b36f; }
+    .student-response-round:nth-child(5n) { border-left-color:#e9a9bd; }
+    .student-response-round-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding-bottom:10px; border-bottom:1px solid #e4ebf0; }
+    .student-response-round-title { color:#365c7f; font-size:17px; font-weight:850; }
+    .student-response-round-score { color:#4e6d86; font-size:14px; font-weight:800; text-align:right; white-space:nowrap; }
+    .student-response-round-score small { display:block; color:#7d8d9a; font-size:11px; font-weight:500; }
+    .student-response-question { padding:12px 1px 10px; border-bottom:1px dashed #dbe5eb; break-inside:avoid; page-break-inside:avoid; }
+    .student-response-question:last-child { border-bottom:0; padding-bottom:1px; }
+    .student-response-question-label { color:#7b8b98; font-size:11px; font-weight:800; }
+    .student-response-question-prompt { margin-top:3px; color:#354b5e; font-size:14px; font-weight:800; line-height:1.55; }
+    .student-response-answer { margin-top:7px; padding:8px 10px; border:1px solid #d9e4eb; border-radius:6px; background:#f9fbfc; color:#536a7d; font-size:13px; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .student-response-answer strong { color:#365c7f; }
+    .teacher-print-report { display:none; }
+    .teacher-print-page { max-width:920px; margin:0 auto; padding:28px 34px 38px; color:#202a35; background:#fff; font-family:"Noto Sans Thai", "Noto Sans", Arial, sans-serif; }
+    .teacher-print-header { border-bottom:3px solid #1f4e79; padding-bottom:13px; }
+    .teacher-print-kicker { color:#5e7183; font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
+    .teacher-print-title { margin:4px 0 3px; color:#173b5c; font-size:25px; letter-spacing:-.02em; }
+    .teacher-print-subtitle { color:#617487; font-size:13px; }
+    .teacher-print-profile { display:grid; grid-template-columns:repeat(5,1fr); margin-top:18px; border:1px solid #bdc9d5; border-radius:5px; overflow:hidden; }
+    .teacher-print-profile-item { min-height:58px; padding:9px 11px; border-right:1px solid #d8e0e7; }
+    .teacher-print-profile-item:last-child { border-right:0; }
+    .teacher-print-profile-item small { display:block; margin-bottom:4px; color:#66788a; font-size:11px; }
+    .teacher-print-profile-item strong { display:block; color:#1f2f3e; font-size:14px; overflow-wrap:anywhere; }
+    .teacher-print-target { margin-top:11px; padding:9px 11px; border:1px solid #d8e0e7; border-radius:5px; color:#4b6072; font-size:12px; line-height:1.6; }
+    .teacher-print-summary { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-top:16px; }
+    .teacher-print-summary-item { padding:10px 11px; border:1px solid #d8e0e7; border-radius:5px; background:#f7f9fb; }
+    .teacher-print-summary-item small { display:block; color:#66788a; font-size:10px; }
+    .teacher-print-summary-item strong { display:block; margin-top:4px; color:#173b5c; font-size:16px; }
+    .teacher-print-rounds { margin-top:21px; }
+    .teacher-print-round { margin-top:15px; padding:14px; border:1px solid #9eafbf; border-left:5px solid #2c6e9e; border-radius:5px; break-inside:avoid; page-break-inside:avoid; }
+    .teacher-print-round-head { display:flex; align-items:flex-start; justify-content:space-between; gap:15px; margin:-14px -14px 0; padding:10px 13px; border-bottom:1px solid #cbd6df; background:#f1f5f8; }
+    .teacher-print-round-name { color:#173b5c; font-size:16px; font-weight:800; }
+    .teacher-print-round-score { color:#1f4e79; font-size:14px; font-weight:800; text-align:right; white-space:nowrap; }
+    .teacher-print-round-score small { display:block; color:#607487; font-size:11px; font-weight:500; }
+    .teacher-print-question { padding:12px 2px; border-bottom:1px solid #e1e7ec; break-inside:avoid; page-break-inside:avoid; }
+    .teacher-print-question:last-child { border-bottom:0; padding-bottom:1px; }
+    .teacher-print-question-label { color:#647789; font-size:11px; font-weight:800; }
+    .teacher-print-question-prompt { margin-top:3px; color:#263746; font-size:13px; font-weight:800; line-height:1.55; }
+    .teacher-print-answer-box { margin-top:7px; padding:8px 10px; border:1px solid #d3dde5; border-radius:4px; background:#fbfcfd; color:#42596b; font-size:13px; line-height:1.65; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .teacher-print-footer { margin-top:20px; padding-top:10px; border-top:1px solid #bdc9d5; color:#718293; font-size:10px; line-height:1.55; }
+    .teacher-print-actions { display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+    @media print { body { background:#fff; } .no-print,.topbar,.actions,.source-list,.notice { display:none !important; } .print-only { display:block !important; } .app-shell { max-width:none; padding:0; } .card,.hero-copy { box-shadow:none; border:0; } .result-hero { -webkit-print-color-adjust:exact; print-color-adjust:exact; } .print-profile-grid { grid-template-columns:repeat(5,1fr); } body.teacher-printing { background:#fff !important; } body.teacher-printing .app-shell { display:none !important; } body.teacher-printing #toast { display:none !important; } body.teacher-printing .modal-backdrop { display:none !important; } body.teacher-printing .teacher-print-report { display:block !important; } body.teacher-printing .teacher-print-page { max-width:none; padding:0; } .teacher-print-round,.teacher-print-question { -webkit-print-color-adjust:exact; print-color-adjust:exact; } }
+    @media (max-width:820px) { .teacher-print-profile,.teacher-print-summary { grid-template-columns:repeat(2,1fr); } .teacher-print-profile-item:nth-child(2n) { border-right:0; } .teacher-print-profile-item:nth-child(n+3) { border-top:1px solid #d8e0e7; } }
+    .hidden { display:none !important; }
+    @page { size:A4; margin:14mm 13mm 16mm; }
+    @media print {
+      body { color:#24364a; font-family:"Noto Sans Thai","Tahoma",sans-serif; font-size:11pt; }
+      #report { max-width:none; padding:0; }
+      #report:before { content:"TCAS COMPASS / NEXT STEP"; display:block; padding:9px 12px; border-radius:9px 9px 0 0; background:#24364a; color:#fff; font-size:9px; font-weight:800; letter-spacing:.16em; }
+      #report:after { display:none; }
+      .print-profile { margin:0; padding:20px 18px 16px; border:1px solid #dbe7ee; border-top:0; border-radius:0 0 14px 14px; background:linear-gradient(135deg,#f2f8ff 0%,#fffaf1 100%); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .print-profile-title { margin:0 0 16px; color:#1d3854; font-size:24px; line-height:1.2; }
+      .print-profile-title:after { content:"รายงานสรุปเพื่อทบทวนและวางแผน"; display:block; margin-top:6px; color:#718494; font-size:11px; font-weight:500; letter-spacing:0; }
+      .print-profile-grid { grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+      .print-profile-item { min-height:54px; padding:9px 10px; border:1px solid #dbe7ee; border-radius:9px; background:rgba(255,255,255,.78); }
+      .print-profile-item small { color:#758899; font-size:9px; }
+      .print-profile-item strong { color:#24364a; font-size:12px; }
+      .guidance-hero { margin-top:16px; padding:16px; border:1px solid #c9e3d8; border-radius:14px; background:#edf7f4; color:#365c52; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .guidance-icon { width:46px; height:46px; border-radius:14px; font-size:23px; }
+      .guidance-hero h2 { color:#2f5d55; font-size:18px; }
+      .guidance-hero p { color:#5d766f; font-size:11px; line-height:1.6; }
+      .result-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:14px; }
+      .result-card { min-height:92px; padding:11px; border:1px solid #e0e8ee; border-radius:12px; background:#fbfdff; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .result-card .round-name { color:#61788b; font-size:10px; }
+      .result-card-topic { margin-top:7px; color:#315d7f; font-size:11px; }
+      .student-response-section { break-before:page; page-break-before:always; margin-top:0; }
+      .student-response-section-title { display:inline-block; margin:0; padding:8px 12px; border-left:4px solid #7bbba5; border-radius:0 8px 8px 0; background:#edf7f4; color:#2f5d55; font-size:18px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      .student-response-section-note { margin:8px 0 14px; color:#718494; font-size:10px; }
+      .student-response-round { margin-top:12px; padding:14px; border:1px solid #d7e2ea; border-top:4px solid #7aa8d8; border-radius:14px; background:#fff; }
+      .student-response-round:nth-child(3n) { border-top-color:#82c4ad; border-left-color:#d7e2ea; }
+      .student-response-round:nth-child(4n) { border-top-color:#e6b36f; border-left-color:#d7e2ea; }
+      .student-response-round:nth-child(5n) { border-top-color:#e9a9bd; border-left-color:#d7e2ea; }
+      .student-response-round-head { gap:10px; padding-bottom:9px; }
+      .student-response-round-title { color:#315d7f; font-size:15px; }
+      .student-response-round-score { color:#557b99; font-size:12px; }
+      .student-response-question { padding:10px 0 9px; }
+      .student-response-question-label { color:#7890a1; font-size:9px; }
+      .student-response-question-prompt { color:#2e4354; font-size:12px; line-height:1.5; }
+      .student-response-answer { margin-top:6px; padding:8px 10px; border:1px solid #d9e7ef; border-radius:8px; background:#f6fafc; color:#405b70; font-size:11px; line-height:1.55; }
+      .student-response-answer strong { color:#4b7fae; }
+      .student-response-round,.student-response-question { break-inside:avoid; page-break-inside:avoid; }
+    }
+    @media (max-width:820px) { .hero { grid-template-columns:1fr; } .hero-art { min-height:250px; } .grid-form { grid-template-columns:repeat(2,1fr); } .result-grid,.stats-grid { grid-template-columns:repeat(2,1fr); } }
+    @media (max-width:580px) { .app-shell { padding:18px 12px 42px; } .topbar { margin-bottom:18px; } .brand-mark { width:36px;height:36px;border-radius:11px; } .brand { font-size:14px; } .hero-copy,.card { border-radius:20px; padding:20px; } .hero-copy { padding:25px 20px; } h1 { font-size:34px; } .grid-form { grid-template-columns:1fr; } .field.wide { grid-column:auto; } .round-tabs { grid-template-columns:repeat(2,1fr); } .round-tab { padding:12px; font-size:13px; } .result-hero { grid-template-columns:1fr; text-align:center; } .result-grid,.stats-grid { grid-template-columns:1fr 1fr; gap:10px; } .score-ring { width:130px;height:130px; } .score-number { font-size:30px; } .question-helper,.options,.question-card textarea { margin-left:0; width:100%; } .question-card { padding:15px; } .dashboard-toolbar .field { min-width:calc(50% - 6px); } .actions > button { flex:1; } }
+    @media print { body { background:#fff; } .no-print,.topbar,.actions,.source-list,.notice { display:none !important; } .print-only { display:block !important; } .app-shell { max-width:none; padding:0; } .card,.hero-copy { box-shadow:none; border:0; } .result-hero { -webkit-print-color-adjust:exact; print-color-adjust:exact; } .print-profile-grid { grid-template-columns:repeat(5,1fr); } }
+    html { overflow-x:hidden; }
+    body { -webkit-text-size-adjust:100%; overflow-x:hidden; }
+    .app-shell { width:100%; }
+    .brand > div:last-child { min-width:0; }
+    .brand #brandName { overflow-wrap:anywhere; }
+    .hero-copy p,.path-item,.round-tab,.option,.question-card h3,.result-card,.stat,.detail-item,.teacher-print-target,.teacher-print-round-name,.teacher-print-question-prompt { overflow-wrap:anywhere; }
+    .table-wrap { -webkit-overflow-scrolling:touch; }
+    .modal { max-height:calc(100dvh - 36px); }
+
+    @media (max-width:1024px) {
+      .app-shell { max-width:980px; padding-inline:clamp(16px,3vw,28px); }
+      .hero { grid-template-columns:1fr; gap:18px; }
+      .hero-art { min-height:240px; }
+      .grid-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .result-grid,.stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .teacher-print-profile,.teacher-print-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .teacher-print-profile-item:nth-child(2n) { border-right:0; }
+      .teacher-print-profile-item:nth-child(n+3) { border-top:1px solid #d8e0e7; }
+    }
+
+    @media (max-width:700px) {
+      .app-shell { padding:18px max(12px,env(safe-area-inset-right)) 42px max(12px,env(safe-area-inset-left)); }
+      .topbar { align-items:flex-start; flex-wrap:wrap; margin-bottom:20px; }
+      .brand { flex:1 1 220px; align-items:flex-start; }
+      .brand small { line-height:1.45; }
+      .hero-copy,.card { border-radius:21px; padding:20px; }
+      .hero-copy { padding:26px 20px; }
+      h1 { font-size:clamp(30px,8vw,40px); }
+      .hero-copy p { font-size:15px; }
+      .hero-art { min-height:0; padding:20px; }
+      .section-heading { align-items:stretch; flex-direction:column; gap:12px; }
+      .section-heading .actions { width:100%; justify-content:flex-start; margin-top:0; }
+      .grid-form { grid-template-columns:1fr; gap:13px; }
+      .field.wide { grid-column:auto; }
+      .round-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+      .round-tab { padding:12px; font-size:13px; min-width:0; }
+      .round-tab span { line-height:1.4; }
+      .progress-wrap { display:grid; grid-template-columns:1fr auto; gap:8px; }
+      .progress { grid-column:1 / -1; grid-row:2; width:100%; }
+      .question-card { padding:15px; }
+      .question-top { gap:9px; }
+      .question-card h3 { font-size:15px; }
+      .question-helper,.options,.question-card textarea { margin-left:0; width:100%; }
+      .options { gap:8px; }
+      .option { padding:11px 10px; }
+      .result-hero { grid-template-columns:1fr; gap:16px; text-align:center; padding:20px; }
+      .guidance-hero { flex-direction:column; gap:12px; padding:18px; }
+      .guidance-icon { width:50px; height:50px; border-radius:15px; font-size:26px; }
+      .result-grid,.stats-grid { grid-template-columns:1fr; gap:10px; }
+      .result-card,.stat { padding:15px; }
+      .dashboard-toolbar { align-items:stretch; }
+      .dashboard-toolbar .field { min-width:100%; }
+      .dashboard-toolbar .actions { width:100%; margin-top:0; }
+      .dashboard-toolbar .actions > button { flex:1 1 140px; }
+      table { min-width:700px; }
+      th,td { white-space:normal; vertical-align:top; padding:10px; }
+      .modal-backdrop { padding:10px; place-items:center; }
+      .modal { max-height:calc(100dvh - 20px); padding:18px; border-radius:18px; }
+      .modal-head { align-items:flex-start; }
+      .detail-grid { grid-template-columns:1fr; }
+      .student-response-round-head,.teacher-print-round-head,.print-round-head { flex-direction:column; align-items:flex-start; gap:7px; }
+      .student-response-round-score,.teacher-print-round-score { text-align:left; white-space:normal; }
+      .teacher-print-page { padding:22px 16px 30px; }
+      .teacher-print-title { font-size:22px; }
+      .teacher-print-actions { justify-content:stretch; flex-wrap:wrap; }
+      .teacher-print-actions > button { flex:1 1 160px; }
+      .print-profile-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .print-round { padding:13px; }
+      .print-round-head strong { white-space:normal; }
+    }
+
+    @media (max-width:420px) {
+      .app-shell { padding-inline:max(10px,env(safe-area-inset-left)) max(10px,env(safe-area-inset-right)); }
+      .topbar { gap:11px; }
+      .topbar .link-button { width:100%; }
+      .hero-copy,.card { padding:16px; border-radius:18px; }
+      .hero-copy { padding:22px 16px; }
+      .hero-art { padding:16px; }
+      h1 { font-size:30px; }
+      .round-tabs { grid-template-columns:1fr; }
+      .round-tab { padding:11px 12px; }
+      .actions,.dashboard-toolbar .actions,.teacher-print-actions { flex-direction:column; }
+      .actions > button,.dashboard-toolbar .actions > button,.teacher-print-actions > button { width:100%; flex:1 1 auto; }
+      .result-card,.stat { padding:13px; }
+      .score-ring { width:126px; height:126px; }
+      .question-no { min-width:28px; height:28px; }
+      .modal-backdrop { padding:6px; }
+      .modal { max-height:calc(100dvh - 12px); padding:15px; }
+      .print-profile-grid,.teacher-print-profile,.teacher-print-summary { grid-template-columns:1fr; }
+      .teacher-print-profile-item { border-right:0; border-top:1px solid #d8e0e7; }
+      .teacher-print-profile-item:first-child { border-top:0; }
+      .teacher-print-page { padding:16px 8px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar no-print">
+      <div class="brand"><div class="brand-mark">☀</div><div><div id="brandName">TCAS Compass</div><small>ค่อย ๆ รู้จักตัวเอง แล้วไปต่อด้วยกัน</small></div></div>
+      <button class="link-button" onclick="showTeacherLogin()">โหมดคุณครู →</button>
+    </header>
+    <div id="app"><div class="loading"><div><div class="spinner"></div>กำลังเตรียมแบบประเมิน…</div></div></div>
+  </main>
+  <div id="toast" class="toast hidden"></div>
+  <script>
+    const state = { config:{}, rounds:[], questions:[], sourceLinks:[], profile:{}, answers:{}, currentRound:0, result:null, teacherToken:'', responses:[], selectedUniversity:null, selectedFaculty:null, customUniversity:false, customFaculty:false };
+    const UNIVERSITY_DATA_URL = 'https://raw.githubusercontent.com/Hipo/university-domains-list/master/world_universities_and_domains.json';
+    const FALLBACK_UNIVERSITIES = [
+      ['จุฬาลงกรณ์มหาวิทยาลัย','Thailand'], ['มหาวิทยาลัยธรรมศาสตร์','Thailand'], ['มหาวิทยาลัยมหิดล','Thailand'],
+      ['มหาวิทยาลัยเกษตรศาสตร์','Thailand'], ['มหาวิทยาลัยเชียงใหม่','Thailand'], ['มหาวิทยาลัยขอนแก่น','Thailand'],
+      ['University of Oxford','United Kingdom'], ['University of Cambridge','United Kingdom'], ['Imperial College London','United Kingdom'],
+      ['Harvard University','United States'], ['Stanford University','United States'], ['Massachusetts Institute of Technology','United States'],
+      ['University of California, Berkeley','United States'], ['University of Toronto','Canada'], ['University of British Columbia','Canada'],
+      ['University of Melbourne','Australia'], ['University of Sydney','Australia'], ['The University of Tokyo','Japan'],
+      ['Kyoto University','Japan'], ['National University of Singapore','Singapore'], ['Tsinghua University','China'],
+      ['Peking University','China'], ['Seoul National University','South Korea'], ['University of Hong Kong','Hong Kong'],
+      ['ETH Zurich','Switzerland'], ['Technical University of Munich','Germany'], ['University of Amsterdam','Netherlands'],
+      ['University of Paris','France'], ['University of São Paulo','Brazil'], ['University of Cape Town','South Africa']
+    ].map(([name,country]) => ({name,country}));
+    const FACULTY_OPTIONS = [
+      'บริหารธุรกิจ / Business Administration', 'บัญชี / Accountancy', 'เศรษฐศาสตร์ / Economics', 'กฎหมาย / Law',
+      'รัฐศาสตร์ / Political Science', 'ความสัมพันธ์ระหว่างประเทศ / International Relations', 'นิเทศศาสตร์ / Communication Arts',
+      'วารสารศาสตร์และสื่อสารมวลชน / Journalism and Mass Communication', 'ครุศาสตร์และศึกษาศาสตร์ / Education', 'จิตวิทยา / Psychology',
+      'สังคมวิทยาและมานุษยวิทยา / Sociology and Anthropology', 'สังคมสงเคราะห์ศาสตร์ / Social Work', 'มนุษยศาสตร์ / Humanities',
+      'ภาษาและภาษาศาสตร์ / Languages and Linguistics', 'ศิลปศาสตร์ / Liberal Arts', 'ศิลปกรรมศาสตร์ / Fine Arts',
+      'ออกแบบ / Design', 'สถาปัตยกรรมศาสตร์ / Architecture', 'ดนตรี / Music', 'ศิลปะการแสดง / Performing Arts',
+      'วิทยาการคอมพิวเตอร์ / Computer Science', 'เทคโนโลยีสารสนเทศ / Information Technology', 'วิทยาการข้อมูล / Data Science',
+      'ปัญญาประดิษฐ์ / Artificial Intelligence', 'วิศวกรรมซอฟต์แวร์ / Software Engineering', 'ความมั่นคงไซเบอร์ / Cybersecurity',
+      'วิศวกรรมศาสตร์ / Engineering', 'วิศวกรรมไฟฟ้า / Electrical Engineering', 'วิศวกรรมเครื่องกล / Mechanical Engineering',
+      'วิศวกรรมโยธา / Civil Engineering', 'วิศวกรรมเคมี / Chemical Engineering', 'วิศวกรรมอุตสาหการ / Industrial Engineering',
+      'วิศวกรรมสิ่งแวดล้อม / Environmental Engineering', 'วิศวกรรมชีวการแพทย์ / Biomedical Engineering', 'วิศวกรรมการบินและอวกาศ / Aerospace Engineering',
+      'วิศวกรรมวัสดุ / Materials Engineering', 'วิศวกรรมหุ่นยนต์ / Robotics Engineering', 'วิทยาศาสตร์ / Science',
+      'คณิตศาสตร์ / Mathematics', 'ฟิสิกส์ / Physics', 'เคมี / Chemistry', 'ชีววิทยา / Biology',
+      'เทคโนโลยีชีวภาพ / Biotechnology', 'วิทยาศาสตร์สิ่งแวดล้อม / Environmental Science', 'วิทยาศาสตร์โลก / Earth Science',
+      'วิทยาศาสตร์ทางทะเล / Marine Science', 'วิทยาศาสตร์การอาหาร / Food Science', 'แพทยศาสตร์ / Medicine',
+      'ทันตแพทยศาสตร์ / Dentistry', 'เภสัชศาสตร์ / Pharmacy', 'พยาบาลศาสตร์ / Nursing', 'สาธารณสุขศาสตร์ / Public Health',
+      'สัตวแพทยศาสตร์ / Veterinary Medicine', 'สหเวชศาสตร์ / Allied Health Sciences', 'กายภาพบำบัด / Physical Therapy',
+      'เทคนิคการแพทย์ / Medical Technology', 'เกษตรศาสตร์ / Agriculture', 'วนศาสตร์ / Forestry', 'ประมง / Fisheries',
+      'การท่องเที่ยวและการโรงแรม / Tourism and Hospitality', 'วิทยาศาสตร์การกีฬา / Sports Science', 'การบิน / Aviation',
+      'โลจิสติกส์และซัพพลายเชน / Logistics and Supply Chain', 'สหวิทยาการ / Interdisciplinary Studies'
+    ].map(label => ({label}));
+    let universityCatalog = FALLBACK_UNIVERSITIES.slice();
+    let universityCatalogRequest = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      google.script.run.withSuccessHandler(boot).withFailureHandler(showError).getAppData();
+    });
+
+    function boot(data) {
+      Object.assign(state, data);
+      document.title = state.config.APP_NAME || 'TCAS Compass';
+      document.getElementById('brandName').textContent = state.config.APP_NAME || 'TCAS Compass';
+      renderHome();
+      loadUniversityCatalog();
+    }
+
+    function renderHome() {
+      app().innerHTML = `
+        <section class="hero no-print">
+          <div class="hero-copy"><span class="eyebrow">${escapeHtml(state.config.ACADEMIC_YEAR || 'TCAS70')}</span><h1>มาค้นหาทางของเรา<br><span style="color:var(--primary)">ไปมหาวิทยาลัย</span> แบบสบาย ๆ</h1><p>ตอบคำถามสั้น ๆ เหมือนคุยกับตัวเอง แล้วมาดูกันว่าเราถนัดอะไร อยากพัฒนาอะไร และรอบไหนน่าลองบ้าง</p></div>
+          <div class="hero-art"><h2>4 รอบ 4 ทางเลือก ✨</h2><div class="path">${state.rounds.map((r,i)=>`<div class="path-item"><div class="path-icon">${i+1}</div><div><strong>${escapeHtml(roundTitle(r,i).replace(/^รอบที่ \d+ /,''))}</strong><div style="opacity:.78;font-size:12px">${escapeHtml(r.subtitle)}</div></div></div>`).join('')}</div></div>
+        </section>
+        <section class="card no-print"><div class="section-heading"><div><h2>เริ่มจากเล่าเรื่องของเรา 📝</h2><div class="muted small" style="margin-top:6px">ใช้เวลาประมาณ 5–8 นาที · ค่อย ๆ ตอบตามความรู้สึกได้เลย</div></div><span class="pill">ไม่มีคำตอบผิดนะ</span></div>
+          <div class="grid-form" id="profileForm">
+            ${field('firstName','ชื่อจริง','เช่น พิมพ์ชนก','text',false)}
+            ${field('lastName','นามสกุล','เช่น ใจดี','text',false)}
+            ${field('nickname','ชื่อเล่น','เช่น พิม','text',false)}
+            ${field('classLevel','ชั้น (1–6)','กรอก 1 ถึง 6','number',false,'min="1" max="6" step="1" inputmode="numeric"')}
+            ${field('room','ห้อง (1–15)','กรอก 1 ถึง 15','number',false,'min="1" max="15" step="1" inputmode="numeric"')}
+            ${field('number','เลขที่ (1–60)','กรอก 1 ถึง 60','number',false,'min="1" max="60" step="1" inputmode="numeric"')}
+            ${field('targetUniversity','มหาวิทยาลัยที่สนใจ','เช่น มหาวิทยาลัย…','text',true)}
+            ${field('targetFaculty','คณะ/สาขาที่สนใจ','เช่น วิศวกรรมคอมพิวเตอร์','text',true)}
+          </div>
+          <div class="actions"><button class="primary-button" onclick="startQuiz()">เริ่มแบบประเมิน <span>→</span></button></div>
+        </section>`;
+    }
+
+    function field(id,label,placeholder,type,wide,extra='') {
+      if (id === 'targetUniversity' || id === 'targetFaculty') return pickerField(id,label,placeholder,wide);
+      return `<div class="field ${wide?'wide':''}"><label class="field-label" for="${id}">${label}</label><input id="${id}" type="${type}" placeholder="${placeholder}" autocomplete="off" ${extra}></div>`;
+    }
+
+    function pickerField(id,label,placeholder,wide) {
+      const faculty = id === 'targetFaculty';
+      const hint = faculty ? 'เลือกมหาวิทยาลัยก่อน แล้วค้นหาคณะ/สาขาจากรายการ หรือเลือก “อื่น ๆ” เพื่อพิมพ์เอง' : 'รายชื่อมหาวิทยาลัยทั่วโลก · พิมพ์เพื่อค้นหา หรือเลือก “อื่น ๆ” หากไม่พบ';
+      return `<div id="${id}Picker" class="field ${wide?'wide':''} ${faculty?'is-hidden':''}"><label class="field-label" for="${id}">${label}</label><div class="picker"><input id="${id}" type="text" placeholder="${placeholder}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" ${faculty?'disabled':''} oninput="handlePickerInput('${id}',this.value)" onfocus="openPicker('${id}')" onkeydown="handlePickerKeydown(event,'${id}')" onblur="closePickerLater('${id}')"><div id="${id}Suggestions" class="picker-menu" role="listbox" hidden></div></div><div id="${id}Hint" class="field-hint">${hint}</div></div>`;
+    }
+
+    function loadUniversityCatalog() {
+      if (universityCatalogRequest) return universityCatalogRequest;
+      universityCatalogRequest = fetch(UNIVERSITY_DATA_URL)
+        .then(response => { if (!response.ok) throw new Error('university catalog unavailable'); return response.json(); })
+        .then(items => {
+          const seen = new Set();
+          const normalized = items.map(item => ({ name:String(item.name || '').trim(), country:String(item.country || '').trim() }))
+            .filter(item => item.name)
+            .filter(item => { const key = (item.name + '|' + item.country).toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true; })
+            .sort((a,b) => a.name.localeCompare(b.name));
+          if (normalized.length) universityCatalog = normalized;
+          const hint = document.getElementById('targetUniversityHint');
+          if (hint) hint.textContent = `รายชื่อมหาวิทยาลัยทั่วโลก ${universityCatalog.length.toLocaleString()} แห่ง · พิมพ์เพื่อค้นหา หรือเลือก “อื่น ๆ” หากไม่พบ`;
+          const input = document.getElementById('targetUniversity');
+          if (input && document.activeElement === input) renderPickerOptions('targetUniversity', input.value);
+        })
+        .catch(() => {
+          const hint = document.getElementById('targetUniversityHint');
+          if (hint) hint.textContent = 'ใช้รายชื่อยอดนิยมเป็นตัวช่วย · ถ้าไม่พบเลือก “อื่น ๆ” เพื่อพิมพ์ชื่อเอง';
+        });
+      return universityCatalogRequest;
+    }
+
+    function openPicker(id) {
+      renderPickerOptions(id, document.getElementById(id)?.value || '');
+    }
+
+    function handlePickerInput(id, value) {
+      if (id === 'targetUniversity') {
+        if (!state.customUniversity) resetFacultyPicker();
+        state.selectedUniversity = state.customUniversity && value.trim() ? {name:value.trim(), other:true} : null;
+      } else if (id === 'targetFaculty') {
+        state.selectedFaculty = state.customFaculty && value.trim() ? {name:value.trim(), other:true} : null;
+      }
+      renderPickerOptions(id, value);
+    }
+
+    function handlePickerKeydown(event, id) {
+      if (event.key === 'Escape') { closePicker(id); return; }
+      if (event.key === 'Enter') {
+        const first = document.querySelector(`#${id}Suggestions button`);
+        if (first) { event.preventDefault(); first.click(); }
+      }
+    }
+
+    function closePickerLater(id) { window.setTimeout(() => closePicker(id), 180); }
+    function closePicker(id) {
+      const menu = document.getElementById(`${id}Suggestions`);
+      const input = document.getElementById(id);
+      if (menu) menu.hidden = true;
+      if (input) input.setAttribute('aria-expanded','false');
+    }
+
+    function renderPickerOptions(id, query) {
+      const menu = document.getElementById(`${id}Suggestions`);
+      if (!menu) return;
+      const normalizedQuery = String(query || '').trim().toLowerCase();
+      const source = id === 'targetUniversity' ? universityCatalog : FACULTY_OPTIONS;
+      const matches = source.filter(item => {
+        const text = id === 'targetUniversity' ? `${item.name} ${item.country}` : item.label;
+        return !normalizedQuery || text.toLowerCase().includes(normalizedQuery);
+      }).slice(0, 14);
+      const options = matches.map(item => ({ value:id === 'targetUniversity' ? item.name : item.label, label:id === 'targetUniversity' ? item.name : item.label, meta:id === 'targetUniversity' ? item.country : 'คณะ/สาขาทั่วไป', kind:id === 'targetUniversity' ? 'university' : 'faculty' }));
+      if (normalizedQuery || !options.length) options.push({value:query.trim(), label:query.trim() ? `อื่น ๆ — ใช้ “${query.trim()}”` : 'อื่น ๆ — พิมพ์ชื่อเอง', meta:'กรอกชื่อเองได้', kind:'other'});
+      menu.innerHTML = options.map(option => `<button type="button" class="picker-option ${option.kind === 'other' ? 'other' : ''}" data-picker-value="${escapeAttr(option.value)}" data-picker-kind="${option.kind}"><strong>${escapeHtml(option.label)}</strong><small>${escapeHtml(option.meta)}</small></button>`).join('');
+      menu.hidden = false;
+      document.getElementById(id)?.setAttribute('aria-expanded','true');
+      menu.querySelectorAll('button').forEach(button => button.addEventListener('mousedown', event => { event.preventDefault(); choosePickerValue(id, button.dataset.pickerValue || '', button.dataset.pickerKind || 'other'); }));
+    }
+
+    function choosePickerValue(id, value, kind) {
+      const input = document.getElementById(id);
+      if (!input) return;
+      input.value = value;
+      closePicker(id);
+      if (id === 'targetUniversity') {
+        state.customUniversity = kind === 'other';
+        state.selectedUniversity = kind === 'other' ? {name:value, other:true} : {name:value};
+        state.selectedFaculty = null;
+        state.customFaculty = false;
+        const facultyPicker = document.getElementById('targetFacultyPicker');
+        const facultyInput = document.getElementById('targetFaculty');
+        if (facultyPicker) facultyPicker.classList.remove('is-hidden');
+        if (facultyInput) { facultyInput.disabled = false; facultyInput.focus(); }
+      } else {
+        state.customFaculty = kind === 'other';
+        state.selectedFaculty = {name:value, other:kind === 'other'};
+        if (kind === 'other') input.focus();
+      }
+    }
+
+    function resetFacultyPicker() {
+      state.selectedFaculty = null;
+      state.customFaculty = false;
+      const picker = document.getElementById('targetFacultyPicker');
+      const input = document.getElementById('targetFaculty');
+      if (picker) picker.classList.add('is-hidden');
+      if (input) { input.value = ''; input.disabled = true; }
+    }
+
+    function startQuiz() {
+      const required = ['firstName','lastName','nickname','classLevel','room','number'];
+      const profile = {};
+      required.concat(['targetUniversity','targetFaculty']).forEach(id => profile[id] = document.getElementById(id).value.trim());
+      if (required.some(id => !profile[id])) return notify('กรุณากรอกชื่อ นามสกุล ชื่อเล่น ชั้น ห้อง และเลขที่ให้ครบ');
+      if (!profile.targetUniversity) return notify('กรุณาเลือกหรือพิมพ์ชื่อมหาวิทยาลัย');
+      if (!profile.targetFaculty) return notify('กรุณาเลือกหรือพิมพ์ชื่อคณะ/สาขา');
+      const numericLimits = { classLevel:[1,6], room:[1,15], number:[1,60] };
+      for (const [id, limits] of Object.entries(numericLimits)) {
+        const value = Number(profile[id]);
+        if (!Number.isInteger(value) || value < limits[0] || value > limits[1]) return notify(`${id === 'classLevel' ? 'ชั้น' : id === 'room' ? 'ห้อง' : 'เลขที่'}ต้องเป็นตัวเลข ${limits[0]}–${limits[1]}`);
+        profile[id] = String(value);
+      }
+      state.profile = profile; state.answers = {}; state.currentRound = 0; renderQuiz();
+    }
+
+    function renderQuiz() {
+      const round = state.rounds[state.currentRound];
+      const questions = state.questions.filter(q => q.round === round.id);
+      const percent = Math.round(((state.currentRound + 1) / state.rounds.length) * 100);
+      app().innerHTML = `<section class="card"><div class="section-heading"><div><span class="eyebrow" style="margin:0 0 8px">ขั้นที่ ${state.currentRound+1} จาก ${state.rounds.length}</span><h2>${escapeHtml(roundTitle(round,state.currentRound))}</h2><div class="muted" style="margin-top:5px">${escapeHtml(round.subtitle)}</div></div><span class="pill">${percent}%</span></div><div class="progress-wrap"><span>ความคืบหน้า</span><div class="progress"><div style="width:${percent}%"></div></div><strong>${percent}%</strong></div><div class="round-tabs">${state.rounds.map((r,i)=>`<button class="round-tab ${i===state.currentRound?'active':''}" onclick="jumpRound(${i})">${escapeHtml(roundTitle(r,i))}<span>${escapeHtml(r.subtitle)}</span></button>`).join('')}</div><div class="question-list">${questions.map((q,i)=>renderQuestion(q,i)).join('')}</div><div class="round-note">ตอบตามความเป็นจริงได้เลย ไม่มีคำตอบผิด ระบบจะรวบรวมคำถามและคำตอบให้เป็นสรุปความรู้ของคุณ</div><div class="actions"><button class="secondary-button" onclick="previousRound()" ${state.currentRound===0?'disabled':''}>← ย้อนกลับ</button>${state.currentRound < state.rounds.length-1 ? '<button class="primary-button" onclick="nextRound()">ถัดไป →</button>' : '<button class="primary-button" onclick="submitQuiz()">ดูสรุปการเรียนรู้ ✨</button>'}</div></section>`;
+    }
+
+    function renderQuestion(q,i) {
+      const answer = state.answers[q.id];
+      const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
+      const input = q.type === 'textarea' || q.type === 'text' ? `<textarea data-answer="${q.id}" placeholder="เขียนคำตอบสั้น ๆ ได้เลย">${escapeHtml(answer || '')}</textarea>` : `<div class="options">${q.options.map((option,index)=>{ const checked = Array.isArray(answer) ? answer.indexOf(String(index))>=0 : String(answer||'')===String(index); const inputType=q.type==='checkbox'?'checkbox':'radio'; return `<label class="option"><input type="${inputType}" name="${q.id}" value="${index}" ${checked?'checked':''} onchange="saveCurrentAnswer('${q.id}')"><span>${escapeHtml(option.label)}</span></label>`; }).join('')}</div>`;
+      return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}${input}</article>`;
+    }
+
+    function saveCurrentAnswer(questionId) {
+      const q = state.questions.find(item => item.id === questionId);
+      if (q.type === 'checkbox') state.answers[questionId] = Array.from(document.querySelectorAll(`input[name="${questionId}"]:checked`)).map(el => el.value);
+      else { const selected = document.querySelector(`input[name="${questionId}"]:checked`); state.answers[questionId] = selected ? selected.value : ''; }
+    }
+
+    function fillPromptForOption(option) {
+      const match = String(option?.label || '').match(/<([^>]+)>/);
+      return match ? match[1].trim() : '';
+    }
+
+    function cleanOptionLabel(option) {
+      return String(option?.label || '').replace(/<[^>]+>/g, '').trim();
+    }
+
+    function answerChoice(answer) {
+      return answer && typeof answer === 'object' && !Array.isArray(answer) ? String(answer.choice ?? '') : String(answer ?? '');
+    }
+
+    function answerText(answer) {
+      return answer && typeof answer === 'object' && !Array.isArray(answer) ? String(answer.text ?? '') : '';
+    }
+
+    function renderQuestion(q,i) {
+      const answer = state.answers[q.id];
+      const choice = answerChoice(answer);
+      const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
+      const isText = q.type === 'textarea' || q.type === 'text';
+      if (isText) {
+        return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<textarea data-answer="${q.id}" placeholder="เขียนคำตอบสั้น ๆ ได้เลย">${escapeHtml(answer || '')}</textarea></article>`;
+      }
+      const inputType = q.type === 'checkbox' ? 'checkbox' : 'radio';
+      const fillOptions = q.type === 'radio' ? q.options.map((option,index) => ({option,index,prompt:fillPromptForOption(option)})).filter(item => item.prompt) : [];
+      const selectedFill = fillOptions.find(item => String(item.index) === choice);
+      const options = q.options.map((option,index) => {
+        const checked = q.type === 'checkbox' ? (Array.isArray(answer) && answer.indexOf(String(index)) >= 0) : choice === String(index);
+        return `<label class="option"><input type="${inputType}" name="${q.id}" value="${index}" ${checked?'checked':''} onchange="saveCurrentAnswer('${q.id}')"><span>${escapeHtml(cleanOptionLabel(option))}${fillPromptForOption(option) ? `<small class="muted" style="display:block;margin-top:4px">กรอก: ${escapeHtml(fillPromptForOption(option))}</small>` : ''}</span></label>`;
+      }).join('');
+      const fillMarkup = fillOptions.length ? `<div class="radio-fill-wrap ${selectedFill?'':'is-hidden'}" id="${q.id}FillWrap"><label for="${q.id}Fill">${escapeHtml(selectedFill?.prompt || fillOptions[0].prompt)}</label><textarea id="${q.id}Fill" data-radio-fill="${q.id}" oninput="saveRadioFillAnswer('${q.id}')" placeholder="พิมพ์คำตอบที่นี่">${escapeHtml(answerText(answer))}</textarea></div>` : '';
+      return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="options">${options}</div>${fillMarkup}</article>`;
+    }
+
+    function saveCurrentAnswer(questionId) {
+      const q = state.questions.find(item => item.id === questionId);
+      if (!q) return;
+      if (q.type === 'checkbox') {
+        state.answers[questionId] = Array.from(document.querySelectorAll(`input[name="${questionId}"]:checked`)).map(el => el.value);
+        return;
+      }
+      const selected = document.querySelector(`input[name="${questionId}"]:checked`);
+      if (!selected) { state.answers[questionId] = ''; return; }
+      const fillPrompt = fillPromptForOption(q.options[Number(selected.value)]);
+      if (!fillPrompt) {
+        state.answers[questionId] = selected.value;
+        const wrap = document.getElementById(`${questionId}FillWrap`);
+        if (wrap) wrap.classList.add('is-hidden');
+        return;
+      }
+      const fill = document.querySelector(`[data-radio-fill="${questionId}"]`);
+      state.answers[questionId] = {choice:selected.value, text:fill ? fill.value.trim() : ''};
+      const wrap = document.getElementById(`${questionId}FillWrap`);
+      if (wrap) {
+        wrap.classList.remove('is-hidden');
+        const label = wrap.querySelector('label');
+        if (label) label.textContent = fillPrompt;
+      }
+    }
+
+    function saveRadioFillAnswer(questionId) {
+      const q = state.questions.find(item => item.id === questionId);
+      const selected = document.querySelector(`input[name="${questionId}"]:checked`);
+      const fill = document.querySelector(`[data-radio-fill="${questionId}"]`);
+      if (!q || !selected || !fill || !fillPromptForOption(q.options[Number(selected.value)])) return;
+      state.answers[questionId] = {choice:selected.value, text:fill.value.trim()};
+    }
+
+    function collectAnswers() {
+      state.questions.filter(q => q.round === state.rounds[state.currentRound].id).forEach(q => {
+        if (q.type === 'textarea' || q.type === 'text') { const el=document.querySelector(`[data-answer="${q.id}"]`); if (el) state.answers[q.id]=el.value.trim(); }
+        else saveCurrentAnswer(q.id);
+      });
+    }
+
+    function nextRound() { collectAnswers(); state.currentRound=Math.min(state.rounds.length-1,state.currentRound+1); renderQuiz(); window.scrollTo({top:0,behavior:'smooth'}); }
+    function previousRound() { collectAnswers(); state.currentRound=Math.max(0,state.currentRound-1); renderQuiz(); window.scrollTo({top:0,behavior:'smooth'}); }
+    function jumpRound(i) { collectAnswers(); state.currentRound=i; renderQuiz(); window.scrollTo({top:0,behavior:'smooth'}); }
+
+    function submitQuiz() {
+      collectAnswers();
+      const missing = state.questions.filter(q=>q.required && (!state.answers[q.id] || (Array.isArray(state.answers[q.id]) && !state.answers[q.id].length))).map(q=>q.id);
+      if (missing.length) return notify('มีคำถามที่ยังไม่ได้ตอบ กรุณาเลือกคำตอบให้ครบก่อนดูผล');
+      app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังจัดทำสรุปคำถามและคำตอบให้คุณ…</div></div>';
+      google.script.run.withSuccessHandler(result=>{ state.result=result; renderResult(); window.scrollTo({top:0,behavior:'smooth'}); }).withFailureHandler(showError).submitResponse({profile:state.profile,answers:state.answers});
+    }
+
+    function answerIsComplete(question, answer) {
+      if (answer === undefined || answer === null || answer === '' || (Array.isArray(answer) && answer.length === 0)) return false;
+      if (question.type === 'radio') {
+        const choice = answerChoice(answer);
+        const fillPrompt = fillPromptForOption(question.options[Number(choice)]);
+        if (fillPrompt && !answerText(answer).trim()) return false;
+      }
+      return true;
+    }
+
+    function submitQuiz() {
+      collectAnswers();
+      const missing = state.questions.filter(q => q.required && !answerIsComplete(q,state.answers[q.id])).map(q => q.id);
+      if (missing.length) return notify('มีคำถามที่ยังตอบไม่ครบ กรุณาเลือกคำตอบและกรอกช่องเพิ่มเติมให้ครบก่อนดูผล');
+      app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังจัดทำสรุปคำถามและคำตอบให้คุณ…</div></div>';
+      google.script.run.withSuccessHandler(result=>{ state.result=result; renderResult(); window.scrollTo({top:0,behavior:'smooth'}); }).withFailureHandler(showError).submitResponse({profile:state.profile,answers:state.answers});
+    }
+
+    function renderResult() {
+      const result = state.result || { rounds:{}, answered:0, total:0 };
+      app().innerHTML = `<section id="report" class="card"><div class="print-only print-profile"><h1 class="print-profile-title">สรุปข้อมูลการเรียนรู้ TCAS</h1><div class="print-profile-grid"><div class="print-profile-item"><small>ชื่อ</small><strong>${escapeHtml(state.profile.firstName)}</strong></div><div class="print-profile-item"><small>นามสกุล</small><strong>${escapeHtml(state.profile.lastName)}</strong></div><div class="print-profile-item"><small>ชั้น</small><strong>${escapeHtml(state.profile.classLevel)}</strong></div><div class="print-profile-item"><small>ห้อง</small><strong>${escapeHtml(state.profile.room)}</strong></div><div class="print-profile-item"><small>เลขที่</small><strong>${escapeHtml(state.profile.number)}</strong></div></div></div><div class="guidance-hero"><div class="guidance-icon">📚</div><div><span class="eyebrow" style="background:#eaf5f4;color:#4e7d70;margin:0 0 10px">สรุปเพื่อการเรียนรู้</span><h2>รู้จักองค์ประกอบของแต่ละรอบ</h2><p>หน้านี้ไม่มีการให้คะแนน ระบบรวบรวมคำถามและคำตอบไว้ให้คุณทบทวนว่าแต่ละรอบควรเตรียมตัวเรื่องใดบ้าง</p></div></div><div class="result-grid">${state.rounds.map((r,roundIndex)=>{const data=result.rounds[r.id]||{answered:0,total:0,topics:[]};return `<div class="result-card"><div class="round-name">${escapeHtml(roundTitle(r,roundIndex))}</div><div class="result-card-topic">${escapeHtml((data.topics||[]).join(' · ')||'หัวข้อคำถามประจำรอบ')}</div><div class="muted small" style="margin-top:10px">ทบทวนแล้ว ${data.answered}/${data.total} ข้อ</div></div>`}).join('')}</div><section class="student-response-section"><h2 class="student-response-section-title">คำถามและคำตอบของฉัน แยกตามรอบ</h2><p class="student-response-section-note">กรอบแต่ละรอบช่วยให้เห็นว่ารอบนั้นเกี่ยวข้องกับเรื่องใดบ้าง</p>${state.rounds.map((r,roundIndex)=>{const data=result.rounds[r.id]||{answered:0,total:0};const roundQuestions=state.questions.filter(q=>q.round===r.id);return `<section class="student-response-round"><div class="student-response-round-head"><div><div class="student-response-round-title">${escapeHtml(roundTitle(r,roundIndex))}</div><div class="muted small" style="margin-top:4px">${escapeHtml(r.subtitle)}</div></div><div class="student-response-round-score">ทบทวนแล้ว ${data.answered}/${data.total}<small>ไม่มีการให้คะแนน</small></div></div>${roundQuestions.map((q,index)=>`<div class="student-response-question"><div class="student-response-question-label">คำถามที่ ${String(index+1).padStart(2,'0')}${q.section?' · '+escapeHtml(thaiSection(q.section)):''}</div><div class="student-response-question-prompt">${escapeHtml(q.prompt)}</div><div class="student-response-answer"><strong>คำตอบ:</strong> ${escapeHtml(answerForPrint(q,state.answers[q.id]))}</div></div>`).join('')}</section>`}).join('')}</section><div class="notice" style="margin-top:18px">ข้อมูลนี้จัดทำเพื่อช่วยให้ผู้เรียนเห็นองค์ประกอบและคำถามสำคัญของแต่ละรอบ TCAS ไม่ใช่การให้คะแนนหรือการรับรองผลคัดเลือก โปรดตรวจประกาศและคุณสมบัติของหลักสูตรจริงทุกครั้ง</div><div class="no-print" style="margin-top:20px"><h3>ก้าวต่อไปที่ลองทำได้ 🌱</h3><p class="muted" style="line-height:1.7">เลือกหัวข้อจากรอบที่สนใจ แล้วเปิดประกาศของมหาวิทยาลัยหรือคุยกับครูแนะแนวเพื่อดูรายละเอียดจริงเพิ่มเติม</p><div class="source-list">${state.sourceLinks.map(s=>`<a class="source-chip" href="${escapeAttr(s.url)}" target="_blank" rel="noopener">อ่าน ${escapeHtml(s.title)} ↗</a>`).join('')}</div></div><div class="actions no-print"><button class="secondary-button" onclick="renderHome()">ทำแบบประเมินใหม่</button><button class="primary-button" onclick="window.print()">ดาวน์โหลด / บันทึกเป็น PDF</button></div><div class="muted small no-print" style="margin-top:12px;text-align:right">รหัสการส่งข้อมูล: ${escapeHtml(result.submissionId||'-')}</div></section>`;
+    }
+
+    function roundTitle(round, index) {
+      const thaiNames = ['แฟ้มสะสมผลงาน', 'โควตา', 'แอดมิชชัน', 'รับตรงอิสระ'];
+      return `รอบที่ ${index + 1} ${thaiNames[index] || String(round.title || '').replace(/^รอบที่?\s*\d+\s*/, '')}`;
+    }
+
+    function thaiSection(section) {
+      return String(section || '').replace(/Reflection/gi, 'ทบทวนตัวเอง');
+    }
+
+    function answerForPrint(question, answer) {
+      if (question.type === 'textarea' || question.type === 'text') return String(answer || '').trim() || 'ไม่ได้ตอบ';
+      const selected = Array.isArray(answer) ? answer : [answer];
+      const labels = selected.map(value => {
+        const option = question.options[Number(value)];
+        return option ? option.label : '';
+      }).filter(Boolean);
+      return labels.length ? labels.join(' / ') : 'ไม่ได้ตอบ';
+    }
+
+    function answerForPrint(question, answer) {
+      if (question.type === 'textarea' || question.type === 'text') return String(answer || '').trim() || 'ไม่ได้ตอบ';
+      if (answer && typeof answer === 'object' && !Array.isArray(answer)) {
+        const option = question.options[Number(answer.choice)];
+        const label = option ? cleanOptionLabel(option) : '';
+        const text = String(answer.text || '').trim();
+        return [label, text].filter(Boolean).join(' — ') || 'ไม่ได้ตอบ';
+      }
+      const selected = Array.isArray(answer) ? answer : [answer];
+      const labels = selected.map(value => cleanOptionLabel(question.options[Number(value)])).filter(Boolean);
+      return labels.length ? labels.join(' / ') : 'ไม่ได้ตอบ';
+    }
+
+    function showTeacherLogin() {
+      app().innerHTML=`<section class="teacher-login"><div class="card"><div class="section-heading"><div><span class="eyebrow">สำหรับครู</span><h2>เข้าสู่แดชบอร์ด</h2><div class="muted small" style="margin-top:6px">ดูข้อมูลการตอบแบบประเมินและดาวน์โหลดผลรวม</div></div><button class="icon-button" onclick="switchToStudentMode()" aria-label="กลับโหมดนักเรียน">×</button></div><div class="field"><label class="field-label">ชื่อผู้ใช้</label><input id="teacherUser" autocomplete="username" placeholder="กรอกชื่อผู้ใช้"></div><div class="field" style="margin-top:14px"><label class="field-label">รหัสผ่าน</label><input id="teacherPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน"></div><div class="actions"><button class="secondary-button" onclick="switchToStudentMode()">← กลับโหมดนักเรียน</button><button class="primary-button" onclick="loginTeacher()">เข้าสู่ระบบ</button></div></div></section>`;
+    }
+
+    function loginTeacher() {
+      const username=document.getElementById('teacherUser').value.trim(); const password=document.getElementById('teacherPassword').value;
+      if (!username || !password) return notify('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
+      google.script.run.withSuccessHandler(session=>{state.teacherToken=session.token;state.teacherName=session.displayName;loadDashboard();}).withFailureHandler(showError).teacherLogin(username,password);
+    }
+
+    function loadDashboard(filters) { app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังโหลดข้อมูลนักเรียน…</div></div>'; google.script.run.withSuccessHandler(rows=>{state.responses=rows;renderDashboard();}).withFailureHandler(showError).listResponses(state.teacherToken,filters||{}); }
+
+    function renderDashboard() {
+      const rows = state.responses;
+      const latest = rows.length ? rows[0].createdAt : '-';
+      app().innerHTML=`<section class="card"><div class="section-heading"><div><span class="eyebrow">โหมดครู</span><h2>แดชบอร์ดข้อมูลนักเรียน</h2><div class="muted small" style="margin-top:6px">สวัสดี ${escapeHtml(state.teacherName||'คุณครู')} · ${rows.length} รายการตามตัวกรองปัจจุบัน</div></div><div class="actions" style="margin:0"><button class="secondary-button" onclick="switchToStudentMode()">← โหมดนักเรียน</button><button class="secondary-button" onclick="downloadCsv()">ดาวน์โหลดตารางข้อมูล</button><button class="danger-button" onclick="logoutTeacher()">ออกจากระบบ</button></div></div><div class="stats-grid"><div class="stat"><div class="stat-label">จำนวนผู้ตอบ</div><div class="stat-value">${rows.length}</div></div><div class="stat"><div class="stat-label">จำนวนรอบการเรียนรู้</div><div class="stat-value">${state.rounds.length}</div></div><div class="stat"><div class="stat-label">จำนวนหัวข้อคำถาม</div><div class="stat-value">${state.questions.length}</div></div><div class="stat"><div class="stat-label">ส่งล่าสุด</div><div class="stat-value" style="font-size:16px">${escapeHtml(latest)}</div></div></div><div class="dashboard-toolbar no-print"><div class="field"><label class="field-label">ค้นหา</label><input id="filterQuery" placeholder="ชื่อ นามสกุล คณะ…"></div><div class="field"><label class="field-label">ชั้น</label><input id="filterClass" placeholder="ม.6"></div><div class="field"><label class="field-label">ห้อง</label><input id="filterRoom" placeholder="1"></div><button class="primary-button" onclick="applyFilters()">กรองข้อมูล</button></div><div class="table-wrap">${rows.length?`<table><thead><tr><th>วันที่ส่ง</th><th>นักเรียน</th><th>ชั้น/ห้อง</th><th>เป้าหมาย</th><th>สถานะ</th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="clickable" onclick="showDetail(${i})"><td>${escapeHtml(r.createdAt)}</td><td><strong>${escapeHtml(r.firstName+' '+r.lastName)}</strong><br><span class="muted">${escapeHtml(r.nickname)}</span></td><td>${escapeHtml(r.classLevel)}/${escapeHtml(r.room)} เลขที่ ${escapeHtml(r.number)}</td><td>${escapeHtml(r.targetFaculty||'-')}<br><span class="muted">${escapeHtml(r.targetUniversity||'')}</span></td><td><span class="pill">ส่งข้อมูลแล้ว</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty">ยังไม่พบข้อมูลตามตัวกรอง</div>'}</div></section>`;
+    }
+
+    function applyFilters(){ loadDashboard({query:document.getElementById('filterQuery').value,classLevel:document.getElementById('filterClass').value.trim(),room:document.getElementById('filterRoom').value.trim()}); }
+    function currentFilters(){ return {query:document.getElementById('filterQuery')?.value||'',classLevel:document.getElementById('filterClass')?.value.trim()||'',room:document.getElementById('filterRoom')?.value.trim()||''}; }
+    function downloadCsv(){ google.script.run.withSuccessHandler(csv=>{const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='tcas-compass-responses.csv';a.click();URL.revokeObjectURL(url);}).withFailureHandler(showError).exportResponsesCsv(state.teacherToken,currentFilters()); }
+    function showDetail(i){
+      const r=state.responses[i];
+      const answers=Object.entries(parseAnswers(r.answersJson));
+      document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="detailModal" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()"><div class="modal-head"><div><span class="eyebrow">ข้อมูลนักเรียน</span><h2>${escapeHtml(r.firstName+' '+r.lastName)}</h2></div><button class="icon-button" onclick="closeModal()">×</button></div><div class="detail-grid">${detail('ชื่อเล่น',r.nickname)}${detail('ชั้น / ห้อง / เลขที่',r.classLevel+' / '+r.room+' / '+r.number)}${detail('มหาวิทยาลัยเป้าหมาย',r.targetUniversity||'-')}${detail('คณะ/สาขาเป้าหมาย',r.targetFaculty||'-')}${detail('จำนวนคำตอบ',answers.length+' รายการ')}${detail('ส่งเมื่อ',r.createdAt)}</div><h3>คำตอบที่บันทึก</h3><div class="muted small" style="line-height:1.8;margin-top:8px">${answers.map(([id,value])=>`<div><strong>${escapeHtml(id)}</strong>: ${escapeHtml(Array.isArray(value)?value.join(', '):value||'-')}</div>`).join('')}</div><div class="teacher-print-actions"><button class="secondary-button" onclick="closeModal()">ปิด</button><button class="primary-button" onclick="downloadStudentPdf(${i})">ดาวน์โหลด PDF รายงาน</button></div></div></div>`);
+    }
+    function parseAnswers(value){ try { const parsed=JSON.parse(value||'{}'); return parsed&&typeof parsed==='object'?parsed:{}; } catch (e) { return {}; } }
+    function legacyDownloadStudentPdfWithScore_(i){
+      const r=state.responses[i];
+      if(!r) return notify('ไม่พบข้อมูลนักเรียนสำหรับสร้างรายงาน');
+      const answers=parseAnswers(r.answersJson);
+      const roundQuestions=round=>state.questions.filter(q=>q.round===round.id);
+      const answeredCount=questions=>questions.filter(q=>{const answer=answers[q.id];return answer!==undefined&&answer!==null&&answer!==''&&!(Array.isArray(answer)&&answer.length===0);}).length;
+      document.getElementById('teacherPrintReport')?.remove();
+      document.body.insertAdjacentHTML('beforeend',`<div id="teacherPrintReport" class="teacher-print-report"><article class="teacher-print-page"><header class="teacher-print-header"><div class="teacher-print-kicker">TCAS Compass · เอกสารประกอบการแนะแนว</div><h1 class="teacher-print-title">รายงานผลการประเมินความพร้อม TCAS</h1><div class="teacher-print-subtitle">รายงานรายบุคคล · วันที่ส่งแบบประเมิน ${escapeHtml(r.createdAt||'-')}</div></header><section class="teacher-print-profile"><div class="teacher-print-profile-item"><small>ชื่อ</small><strong>${escapeHtml(r.firstName)}</strong></div><div class="teacher-print-profile-item"><small>นามสกุล</small><strong>${escapeHtml(r.lastName)}</strong></div><div class="teacher-print-profile-item"><small>ชื่อเล่น</small><strong>${escapeHtml(r.nickname)}</strong></div><div class="teacher-print-profile-item"><small>ชั้น / ห้อง</small><strong>${escapeHtml(r.classLevel)} / ${escapeHtml(r.room)}</strong></div><div class="teacher-print-profile-item"><small>เลขที่</small><strong>${escapeHtml(r.number)}</strong></div></section><div class="teacher-print-target"><strong>เป้าหมายที่ระบุไว้:</strong> มหาวิทยาลัย ${escapeHtml(r.targetUniversity||'-')} · คณะ/สาขา ${escapeHtml(r.targetFaculty||'-')}</div><section class="teacher-print-summary"><div class="teacher-print-summary-item"><small>คะแนนภาพรวม</small><strong>${r.overallScore} / 100</strong></div>${state.rounds.map(round=>`<div class="teacher-print-summary-item"><small>${escapeHtml(round.title)}</small><strong>${roundScore(round)} / 100</strong></div>`).join('')}</section><section class="teacher-print-rounds">${state.rounds.map(round=>{const questions=roundQuestions(round);return `<section class="teacher-print-round"><div class="teacher-print-round-head"><div class="teacher-print-round-name">${escapeHtml(round.title)}</div><div class="teacher-print-round-score">${roundScore(round)} / 100<small>${escapeHtml(roundLevel(round))} · ตอบแล้ว ${answeredCount(questions)}/${questions.length} ข้อ</small></div></div>${questions.map((q,index)=>`<div class="teacher-print-question"><div class="teacher-print-question-label">คำถามที่ ${String(index+1).padStart(2,'0')}${q.section?' · '+escapeHtml(q.section):''}</div><div class="teacher-print-question-prompt">${escapeHtml(q.prompt)}</div><div class="teacher-print-answer-box"><strong>คำตอบ:</strong> ${escapeHtml(answerForPrint(q,answers[q.id]))}</div></div>`).join('')}</section>`}).join('')}</section><footer class="teacher-print-footer">เอกสารนี้จัดทำจากข้อมูลการตอบแบบประเมินเพื่อใช้ประกอบการแนะแนว ผลลัพธ์เป็นดัชนีความพร้อมเบื้องต้น ไม่ใช่การรับรองผลคัดเลือก ผู้เรียนควรตรวจประกาศและเกณฑ์ของมหาวิทยาลัย/หลักสูตรที่สนใจทุกครั้ง</footer></article></div>`);
+      document.body.classList.add('teacher-printing');
+      window.addEventListener('afterprint',clearTeacherPrint,{once:true});
+      setTimeout(()=>window.print(),80);
+    }
+    function downloadStudentPdf(i){
+      const r=state.responses[i];
+      if(!r) return notify('ไม่พบข้อมูลนักเรียนสำหรับสร้างรายงาน');
+      const answers=parseAnswers(r.answersJson);
+      const roundQuestions=round=>state.questions.filter(q=>q.round===round.id);
+      const answeredCount=questions=>questions.filter(q=>{const answer=answers[q.id];return answer!==undefined&&answer!==null&&answer!==''&&!(Array.isArray(answer)&&answer.length===0);}).length;
+      document.getElementById('teacherPrintReport')?.remove();
+      document.body.insertAdjacentHTML('beforeend',`<div id="teacherPrintReport" class="teacher-print-report"><article class="teacher-print-page"><header class="teacher-print-header"><div class="teacher-print-kicker">TCAS Compass · เอกสารประกอบการแนะแนว</div><h1 class="teacher-print-title">สรุปข้อมูลการเรียนรู้ TCAS</h1><div class="teacher-print-subtitle">รายงานรายบุคคล · วันที่ส่งข้อมูล ${escapeHtml(r.createdAt||'-')}</div></header><section class="teacher-print-profile"><div class="teacher-print-profile-item"><small>ชื่อ</small><strong>${escapeHtml(r.firstName)}</strong></div><div class="teacher-print-profile-item"><small>นามสกุล</small><strong>${escapeHtml(r.lastName)}</strong></div><div class="teacher-print-profile-item"><small>ชื่อเล่น</small><strong>${escapeHtml(r.nickname)}</strong></div><div class="teacher-print-profile-item"><small>ชั้น / ห้อง</small><strong>${escapeHtml(r.classLevel)} / ${escapeHtml(r.room)}</strong></div><div class="teacher-print-profile-item"><small>เลขที่</small><strong>${escapeHtml(r.number)}</strong></div></section><div class="teacher-print-target"><strong>เป้าหมายที่ระบุไว้:</strong> มหาวิทยาลัย ${escapeHtml(r.targetUniversity||'-')} · คณะ/สาขา ${escapeHtml(r.targetFaculty||'-')}</div><section class="teacher-print-summary"><div class="teacher-print-summary-item"><small>จำนวนคำตอบทั้งหมด</small><strong>${Object.keys(answers).length} รายการ</strong></div><div class="teacher-print-summary-item"><small>จำนวนรอบที่ทบทวน</small><strong>${state.rounds.length} รอบ</strong></div></section><section class="teacher-print-rounds">${state.rounds.map((round,roundIndex)=>{const questions=roundQuestions(round);return `<section class="teacher-print-round"><div class="teacher-print-round-head"><div><div class="teacher-print-round-name">${escapeHtml(roundTitle(round,roundIndex))}</div><div style="margin-top:3px;color:#607487;font-size:11px">${escapeHtml(round.subtitle)}</div></div><div class="teacher-print-round-score">ทบทวนแล้ว ${answeredCount(questions)}/${questions.length}<small>ไม่มีการให้คะแนน</small></div></div>${questions.map((q,index)=>`<div class="teacher-print-question"><div class="teacher-print-question-label">คำถามที่ ${String(index+1).padStart(2,'0')}${q.section?' · '+escapeHtml(thaiSection(q.section)):''}</div><div class="teacher-print-question-prompt">${escapeHtml(q.prompt)}</div><div class="teacher-print-answer-box"><strong>คำตอบ:</strong> ${escapeHtml(answerForPrint(q,answers[q.id]))}</div></div>`).join('')}</section>`}).join('')}</section><footer class="teacher-print-footer">เอกสารนี้จัดทำเพื่อสรุปคำถามและคำตอบสำหรับใช้ประกอบการเรียนรู้และการแนะแนว ไม่มีการให้คะแนนหรือรับรองผลคัดเลือก ผู้เรียนควรตรวจประกาศและคุณสมบัติของหลักสูตรจริงทุกครั้ง</footer></article></div>`);
+      document.body.classList.add('teacher-printing');
+      window.addEventListener('afterprint',clearTeacherPrint,{once:true});
+      setTimeout(()=>window.print(),80);
+    }
+    function clearTeacherPrint(){ document.body.classList.remove('teacher-printing'); document.getElementById('teacherPrintReport')?.remove(); }
+    function detail(label,value){return `<div class="detail-item"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`;}
+    function closeModal(event){if(!event||event.target.id==='detailModal')document.getElementById('detailModal')?.remove();}
+    function topRound(rows){if(!rows.length)return'-';const scores=['r1Score','r2Score','r3Score','r4Score'].map(k=>rows.reduce((a,r)=>a+r[k],0)/rows.length);const idx=scores.indexOf(Math.max(...scores));return 'รอบที่ '+(idx+1);}
+    function switchToStudentMode(){ if (state.teacherToken) google.script.run.teacherLogout(state.teacherToken); state.teacherToken=''; state.teacherName=''; state.responses=[]; renderHome(); window.scrollTo({top:0,behavior:'smooth'}); }
+    function logoutTeacher(){ switchToStudentMode(); }
+    function app(){return document.getElementById('app');}
+    function notify(message){const el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');setTimeout(()=>el.classList.add('hidden'),3200);}
+    function showError(error){notify(error&&error.message?error.message:'เกิดข้อผิดพลาด กรุณาลองใหม่');}
+    function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+    function escapeAttr(value){return escapeHtml(value).replace(/`/g,'&#96;');}
+  </script>
+</body>
+</html>
