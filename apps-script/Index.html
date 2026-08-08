@@ -103,11 +103,14 @@
     .exam-score-input-wrap { display:flex; align-items:center; gap:7px; }
     .exam-score-input { min-width:0; flex:1; }
     .exam-score-max { color:var(--muted); font-size:12px; white-space:nowrap; }
+    .conditional-target-wrap { margin:12px 0 0 42px; }
+    .conditional-target-wrap.is-hidden { display:none; }
     @media (max-width:580px) {
       .university-targets { margin-left:0; }
       .university-target-fields { grid-template-columns:1fr; }
       .exam-score-groups { margin-left:0; }
       .exam-score-grid { grid-template-columns:1fr; }
+      .conditional-target-wrap { margin-left:0; }
     }
     .radio-fill-wrap textarea { margin:0; width:100%; min-height:82px; background:#fff; }
     .round-note { padding:14px 16px; border-radius:15px; background:#fff4dc; color:#80653e; line-height:1.6; margin-top:18px; }
@@ -698,6 +701,10 @@
       return question && (question.type === 'university_targets' || question.type === 'university_targets_10');
     }
 
+    function isConditionalUniversityTargetsQuestion(question) {
+      return question && question.type === 'university_targets_if_yes';
+    }
+
     function universityTargetLimit(question) {
       return question.type === 'university_targets_10' ? 10 : 3;
     }
@@ -726,6 +733,20 @@
       return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="university-targets">${rows}</div></article>`;
     }
 
+    function renderConditionalUniversityTargetsQuestion(q,i) {
+      const answer = state.answers[q.id] && typeof state.answers[q.id] === 'object' && !Array.isArray(state.answers[q.id]) ? state.answers[q.id] : {};
+      const targets = Array.isArray(answer.targets) ? answer.targets : [];
+      const choice = String(answer.choice ?? '');
+      const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
+      const targetField = (index, key, label, placeholder) => {
+        const value = targets[index]?.[key] || '';
+        return `<label class="field"><span class="field-label">${label}</span><input data-conditional-target-field="${key}" type="text" placeholder="${placeholder}" value="${escapeAttr(value)}" oninput="saveConditionalUniversityTargetsAnswer('${q.id}')"></label>`;
+      };
+      const rows = Array.from({length:3}, (_, index) => `<div class="university-target-row" data-conditional-target-row="${q.id}"><div class="university-target-rank">อันดับที่ ${index + 1}</div><div class="university-target-fields">${targetField(index,'university','มหาวิทยาลัย','เช่น จุฬาลงกรณ์มหาวิทยาลัย')}${targetField(index,'faculty','คณะ','เช่น วิศวกรรมศาสตร์')}${targetField(index,'major','สาขา','เช่น วิศวกรรมคอมพิวเตอร์')}</div></div>`).join('');
+      const options = q.options.map((option,index) => `<label class="option"><input type="radio" name="${q.id}" value="${index}" ${choice === String(index) ? 'checked' : ''} onchange="saveConditionalUniversityTargetsAnswer('${q.id}')"><span>${escapeHtml(cleanOptionLabel(option))}</span></label>`).join('');
+      return `<article class="question-card" data-conditional-target-question="${escapeAttr(q.id)}"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="options">${options}</div><div class="conditional-target-wrap ${choice === '0' ? '' : 'is-hidden'}" data-conditional-target-wrap="${escapeAttr(q.id)}"><div class="university-targets">${rows}</div></div></article>`;
+    }
+
     function renderExamScoresQuestion(q,i) {
       const answer = state.answers[q.id] && typeof state.answers[q.id] === 'object' && !Array.isArray(state.answers[q.id]) ? state.answers[q.id] : {};
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
@@ -747,6 +768,7 @@
       const choice = answerChoice(answer);
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
       const isText = q.type === 'textarea' || q.type === 'text';
+      if (isConditionalUniversityTargetsQuestion(q)) return renderConditionalUniversityTargetsQuestion(q,i);
       if (isUniversityTargetsQuestion(q)) return renderUniversityTargetsQuestion(q,i);
       if (isExamScoresQuestion(q)) return renderExamScoresQuestion(q,i);
       if (isText) {
@@ -766,6 +788,7 @@
     function saveCurrentAnswer(questionId) {
       const q = state.questions.find(item => item.id === questionId);
       if (!q) return;
+      if (isConditionalUniversityTargetsQuestion(q)) { saveConditionalUniversityTargetsAnswer(questionId); return; }
       if (isUniversityTargetsQuestion(q)) { saveUniversityTargetsAnswer(questionId); return; }
       if (isExamScoresQuestion(q)) { saveExamScoresAnswer(questionId); return; }
       if (q.type === 'checkbox') {
@@ -800,6 +823,22 @@
       })).filter(item => item.university || item.faculty || item.major);
     }
 
+    function saveConditionalUniversityTargetsAnswer(questionId) {
+      const selected = document.querySelector(`input[name="${questionId}"]:checked`);
+      const rows = Array.from(document.querySelectorAll(`[data-conditional-target-row="${questionId}"]`));
+      const choice = selected ? selected.value : '';
+      state.answers[questionId] = {
+        choice,
+        targets: choice === '0' ? rows.map(row => ({
+          university: row.querySelector('[data-conditional-target-field="university"]')?.value.trim() || '',
+          faculty: row.querySelector('[data-conditional-target-field="faculty"]')?.value.trim() || '',
+          major: row.querySelector('[data-conditional-target-field="major"]')?.value.trim() || ''
+        })).filter(item => item.university || item.faculty || item.major) : []
+      };
+      const wrap = document.querySelector(`[data-conditional-target-wrap="${questionId}"]`);
+      if (wrap) wrap.classList.toggle('is-hidden', choice !== '0');
+    }
+
     function saveExamScoresAnswer(questionId) {
       const answer = {};
       const fields = Object.fromEntries(scoreOptionsForQuestion(state.questions.find(item => item.id === questionId)).map(field => [field.key, field]));
@@ -822,7 +861,8 @@
 
     function collectAnswers() {
       state.questions.filter(q => q.round === state.rounds[state.currentRound].id).forEach(q => {
-        if (isUniversityTargetsQuestion(q)) saveUniversityTargetsAnswer(q.id);
+        if (isConditionalUniversityTargetsQuestion(q)) saveConditionalUniversityTargetsAnswer(q.id);
+        else if (isUniversityTargetsQuestion(q)) saveUniversityTargetsAnswer(q.id);
         else if (isExamScoresQuestion(q)) saveExamScoresAnswer(q.id);
         else if (q.type === 'textarea' || q.type === 'text') { const el=document.querySelector(`[data-answer="${q.id}"]`); if (el) state.answers[q.id]=el.value.trim(); }
         else saveCurrentAnswer(q.id);
@@ -845,6 +885,11 @@
       if (answer === undefined || answer === null || answer === '' || (Array.isArray(answer) && answer.length === 0)) return false;
       if (isUniversityTargetsQuestion(question)) {
         return Array.isArray(answer) && answer.length > 0 && answer.every(item => item && item.university && item.faculty && item.major);
+      }
+      if (isConditionalUniversityTargetsQuestion(question)) {
+        const choice = answerChoice(answer);
+        if (choice === '0') return Array.isArray(answer.targets) && answer.targets.length > 0 && answer.targets.every(item => item && item.university && item.faculty && item.major);
+        return choice !== '';
       }
       if (isExamScoresQuestion(question)) {
         return answer && typeof answer === 'object' && !Array.isArray(answer) && Object.keys(answer).length > 0;
@@ -894,6 +939,13 @@
       if (isUniversityTargetsQuestion(question)) {
         const targets = Array.isArray(answer) ? answer : [];
         return targets.map((item,index) => `อันดับ ${index + 1}: ${[item.university, item.faculty, item.major].filter(Boolean).join(' · ')}`).join(' | ') || 'ไม่ได้ตอบ';
+      }
+      if (isConditionalUniversityTargetsQuestion(question)) {
+        const choice = answerChoice(answer);
+        const option = question.options[Number(choice)];
+        const targets = Array.isArray(answer?.targets) ? answer.targets : [];
+        const targetText = targets.map((item,index) => `อันดับ ${index + 1}: ${[item.university, item.faculty, item.major].filter(Boolean).join(' · ')}`).join(' | ');
+        return [option ? cleanOptionLabel(option) : '', targetText].filter(Boolean).join(' — ') || 'ไม่ได้ตอบ';
       }
       if (isExamScoresQuestion(question)) {
         const scores = scoreOptionsForQuestion(question).filter(field => answer && answer[field.key] !== undefined && answer[field.key] !== '').map(field => `${field.label}: ${answer[field.key]}/${field.max}`);
