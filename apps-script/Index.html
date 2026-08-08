@@ -88,6 +88,16 @@
     .radio-fill-wrap { margin:10px 0 0 42px; padding:13px; border:1px dashed #b8d5e2; border-radius:15px; background:#f6fbfd; }
     .radio-fill-wrap.is-hidden { display:none; }
     .radio-fill-wrap label { display:block; color:#557084; font-size:13px; font-weight:800; margin-bottom:7px; }
+    .university-targets { display:grid; gap:12px; margin:15px 0 0 42px; }
+    .university-target-row { display:grid; gap:10px; padding:13px; border:1px solid #eee4db; border-radius:15px; background:#fff; }
+    .university-target-rank { color:#557084; font-size:13px; font-weight:850; }
+    .university-target-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .university-target-fields .field { gap:5px; }
+    .university-target-fields .field-label { color:var(--muted); font-size:12px; }
+    @media (max-width:580px) {
+      .university-targets { margin-left:0; }
+      .university-target-fields { grid-template-columns:1fr; }
+    }
     .radio-fill-wrap textarea { margin:0; width:100%; min-height:82px; background:#fff; }
     .round-note { padding:14px 16px; border-radius:15px; background:#fff4dc; color:#80653e; line-height:1.6; margin-top:18px; }
     .result-hero { display:grid; grid-template-columns:190px 1fr; gap:26px; align-items:center; padding:25px; background:#e7f2ff; border:1px solid #cfe2f5; color:#496681; border-radius:24px; }
@@ -585,11 +595,23 @@
       return answer && typeof answer === 'object' && !Array.isArray(answer) ? String(answer.text ?? '') : '';
     }
 
+    function renderUniversityTargetsQuestion(q,i) {
+      const answer = Array.isArray(state.answers[q.id]) ? state.answers[q.id] : [];
+      const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
+      const targetField = (index, key, label, placeholder) => {
+        const value = answer[index]?.[key] || '';
+        return `<label class="field"><span class="field-label">${label}</span><input data-target-field="${key}" type="text" placeholder="${placeholder}" value="${escapeAttr(value)}" oninput="saveUniversityTargetsAnswer('${q.id}')"></label>`;
+      };
+      const rows = Array.from({length:3}, (_, index) => `<div class="university-target-row" data-target-row="${q.id}"><div class="university-target-rank">อันดับที่ ${index + 1}</div><div class="university-target-fields">${targetField(index,'university','มหาวิทยาลัย','เช่น จุฬาลงกรณ์มหาวิทยาลัย')}${targetField(index,'faculty','คณะ','เช่น วิศวกรรมศาสตร์')}${targetField(index,'major','สาขา','เช่น วิศวกรรมคอมพิวเตอร์')}</div></div>`).join('');
+      return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="university-targets">${rows}</div></article>`;
+    }
+
     function renderQuestion(q,i) {
       const answer = state.answers[q.id];
       const choice = answerChoice(answer);
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
       const isText = q.type === 'textarea' || q.type === 'text';
+      if (q.type === 'university_targets') return renderUniversityTargetsQuestion(q,i);
       if (isText) {
         return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<textarea data-answer="${q.id}" placeholder="เขียนคำตอบสั้น ๆ ได้เลย">${escapeHtml(answer || '')}</textarea></article>`;
       }
@@ -607,6 +629,7 @@
     function saveCurrentAnswer(questionId) {
       const q = state.questions.find(item => item.id === questionId);
       if (!q) return;
+      if (q.type === 'university_targets') { saveUniversityTargetsAnswer(questionId); return; }
       if (q.type === 'checkbox') {
         state.answers[questionId] = Array.from(document.querySelectorAll(`input[name="${questionId}"]:checked`)).map(el => el.value);
         return;
@@ -630,6 +653,15 @@
       }
     }
 
+    function saveUniversityTargetsAnswer(questionId) {
+      const rows = Array.from(document.querySelectorAll(`[data-target-row="${questionId}"]`));
+      state.answers[questionId] = rows.map(row => ({
+        university: row.querySelector('[data-target-field="university"]')?.value.trim() || '',
+        faculty: row.querySelector('[data-target-field="faculty"]')?.value.trim() || '',
+        major: row.querySelector('[data-target-field="major"]')?.value.trim() || ''
+      })).filter(item => item.university || item.faculty || item.major);
+    }
+
     function saveRadioFillAnswer(questionId) {
       const q = state.questions.find(item => item.id === questionId);
       const selected = document.querySelector(`input[name="${questionId}"]:checked`);
@@ -640,7 +672,8 @@
 
     function collectAnswers() {
       state.questions.filter(q => q.round === state.rounds[state.currentRound].id).forEach(q => {
-        if (q.type === 'textarea' || q.type === 'text') { const el=document.querySelector(`[data-answer="${q.id}"]`); if (el) state.answers[q.id]=el.value.trim(); }
+        if (q.type === 'university_targets') saveUniversityTargetsAnswer(q.id);
+        else if (q.type === 'textarea' || q.type === 'text') { const el=document.querySelector(`[data-answer="${q.id}"]`); if (el) state.answers[q.id]=el.value.trim(); }
         else saveCurrentAnswer(q.id);
       });
     }
@@ -659,6 +692,9 @@
 
     function answerIsComplete(question, answer) {
       if (answer === undefined || answer === null || answer === '' || (Array.isArray(answer) && answer.length === 0)) return false;
+      if (question.type === 'university_targets') {
+        return Array.isArray(answer) && answer.length > 0 && answer.every(item => item && item.university && item.faculty && item.major);
+      }
       if (question.type === 'radio') {
         const choice = answerChoice(answer);
         const fillPrompt = fillPromptForOption(question.options[Number(choice)]);
@@ -701,6 +737,10 @@
 
     function answerForPrint(question, answer) {
       if (question.type === 'textarea' || question.type === 'text') return String(answer || '').trim() || 'ไม่ได้ตอบ';
+      if (question.type === 'university_targets') {
+        const targets = Array.isArray(answer) ? answer : [];
+        return targets.map((item,index) => `อันดับ ${index + 1}: ${[item.university, item.faculty, item.major].filter(Boolean).join(' · ')}`).join(' | ') || 'ไม่ได้ตอบ';
+      }
       if (answer && typeof answer === 'object' && !Array.isArray(answer)) {
         const option = question.options[Number(answer.choice)];
         const label = option ? cleanOptionLabel(option) : '';
