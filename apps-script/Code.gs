@@ -216,8 +216,22 @@ function submitResponse(payload) {
     profile.targetFaculty || '', JSON.stringify(answers)
   ];
   const sheet = getSheet_(APP.sheets.responses);
-  if (sheet.getLastRow() === 0) sheet.getRange(1, 1, 1, RESPONSE_HEADERS.length).setValues([RESPONSE_HEADERS]);
-  sheet.getRange(sheet.getLastRow() + 1, 1, 1, row.length).setValues([row]);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    if (sheet.getLastRow() === 0) sheet.getRange(1, 1, 1, RESPONSE_HEADERS.length).setValues([RESPONSE_HEADERS]);
+    const values = sheet.getDataRange().getValues();
+    const headers = values[0].map(value => String(value || '').trim());
+    const headerIndex = headerIndex_(headers);
+    const studentKey = [profile.firstName, profile.lastName].map(normalizeStudentName_).join('|');
+    for (let rowIndex = values.length - 1; rowIndex >= 1; rowIndex -= 1) {
+      const existingKey = [values[rowIndex][headerIndex.first_name], values[rowIndex][headerIndex.last_name]].map(normalizeStudentName_).join('|');
+      if (existingKey === studentKey) sheet.deleteRow(rowIndex + 1);
+    }
+    sheet.getRange(sheet.getLastRow() + 1, 1, 1, row.length).setValues([row]);
+  } finally {
+    lock.releaseLock();
+  }
   return Object.assign(summary, { submissionId: id, createdAt: timestamp.toISOString(), profile: profile });
 }
 
@@ -364,6 +378,10 @@ function normalizeQuestionType_(value) {
 
 function answerProvided_(answer) {
   return answer !== undefined && answer !== null && answer !== '' && !(Array.isArray(answer) && answer.length === 0) && !(answer && typeof answer === 'object' && !Array.isArray(answer) && Object.keys(answer).length === 0);
+}
+
+function normalizeStudentName_(value) {
+  return String(value === undefined || value === null ? '' : value).trim().toLowerCase();
 }
 
 function calculateResult_(questions, answers) {

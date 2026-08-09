@@ -127,11 +127,6 @@ function createStaticRuntime(data, apiUrl) {
       try { return JSON.parse(localStorage.getItem(STATIC_STORAGE_KEY) || '[]'); }
       catch (error) { return []; }
     }
-    function writeStaticResponse(result) {
-      const responses = readStaticResponses();
-      responses.unshift(result);
-      localStorage.setItem(STATIC_STORAGE_KEY, JSON.stringify(responses.slice(0, 100)));
-    }
     function requestBackendJsonp(params) {
       if (!LIVE_BACKEND_URL) return Promise.reject(new Error('ยังไม่ได้ตั้งค่า backend ของ Responses'));
       return new Promise((resolve, reject) => {
@@ -172,6 +167,16 @@ function createStaticRuntime(data, apiUrl) {
         targetFaculty: result?.targetFaculty || profile.targetFaculty || '',
         answersJson: result?.answersJson || '{}'
       });
+    }
+    function staticStudentKey(result) {
+      const normalized = normalizeStaticResponse(result);
+      return [normalized.firstName, normalized.lastName].map(value => String(value || '').trim().toLowerCase()).join('|');
+    }
+    function writeStaticResponse(result) {
+      const studentKey = staticStudentKey(result);
+      const responses = readStaticResponses().filter(item => staticStudentKey(item) !== studentKey);
+      responses.unshift(normalizeStaticResponse(result));
+      localStorage.setItem(STATIC_STORAGE_KEY, JSON.stringify(responses.slice(0, 100)));
     }
     function filterStaticResponses(rows, filters) {
       const active = filters || {};
