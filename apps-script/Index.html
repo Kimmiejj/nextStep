@@ -1335,6 +1335,9 @@
     function isIosPdfDevice_(){
       return /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     }
+    function isMobilePdfDevice_(){
+      return isIosPdfDevice_() || /Android/i.test(navigator.userAgent);
+    }
     function showPdfDownloadFallback_(pdfBlob,filename){
       const existing=document.getElementById('pdfDownloadFallback');
       existing?.remove();
@@ -1482,7 +1485,9 @@
         const pdfBlob=pdf.output('blob');
         if(isIosPdfDevice_() && typeof File !== 'undefined' && navigator.share && navigator.canShare){
           const pdfFile=new File([pdfBlob],filename,{type:'application/pdf'});
-          if(navigator.canShare({files:[pdfFile]})){
+          let canShareFiles=false;
+          try{ canShareFiles=navigator.canShare({files:[pdfFile]}); }catch(error){}
+          if(canShareFiles){
             try{
               await navigator.share({files:[pdfFile],title:filename});
               notify('เลือกบันทึกไฟล์ PDF จากเมนูแชร์ได้เลย');
@@ -1497,7 +1502,11 @@
         }
         if(isIosPdfDevice_()){
           showPdfDownloadFallback_(pdfBlob,filename);
-          notify('กดปุ่มเปิดไฟล์ PDF ในหน้าต่างนี้เพื่อบันทึกไฟล์');
+          notify('ถ้าไฟล์ไม่ดาวน์โหลด ให้กดปุ่มเปิดไฟล์ PDF ในหน้าต่างนี้');
+        }else if(isMobilePdfDevice_()){
+          try{ pdf.save(filename); }catch(error){}
+          showPdfDownloadFallback_(pdfBlob,filename);
+          notify('ถ้าไฟล์ไม่ดาวน์โหลด ให้กดปุ่มเปิดไฟล์ PDF ในหน้าต่างนี้');
         }else{
           pdf.save(filename);
           notify('ดาวน์โหลดไฟล์ PDF เรียบร้อยแล้ว');
