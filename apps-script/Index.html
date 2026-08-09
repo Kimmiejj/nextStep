@@ -544,9 +544,9 @@
             ${field('firstName','ชื่อจริง','เช่น พิมพ์ชนก','text',false)}
             ${field('lastName','นามสกุล','เช่น ใจดี','text',false)}
             ${field('nickname','ชื่อเล่น','เช่น พิม','text',false)}
-            ${field('classLevel','ชั้น (1–6)','กรอก 1 ถึง 6','number',false,'min="1" max="6" step="1" inputmode="numeric" oninput="clampProfileNumber(this, 1, 6)"')}
-            ${field('room','ห้อง (1–15)','กรอก 1 ถึง 15','number',false,'min="1" max="15" step="1" inputmode="numeric" oninput="clampProfileNumber(this, 1, 15)"')}
-            ${field('number','เลขที่ (1–60)','กรอก 1 ถึง 60','number',false,'min="1" max="60" step="1" inputmode="numeric" oninput="clampProfileNumber(this, 1, 60)"')}
+            ${field('classLevel','มัธยมศึกษาปีที่','กรอก 1 ถึง 6','number',false,'min="1" max="6" step="1" inputmode="numeric" oninput="clampProfileNumber(this, 1, 6)"')}
+            ${field('room','ห้อง','','number',false,'inputmode="numeric"')}
+            ${field('number','เลขที่','','number',false,'inputmode="numeric"')}
             ${field('targetUniversity','มหาวิทยาลัยที่สนใจ','เช่น มหาวิทยาลัย…','text',true)}
             ${field('targetFaculty','คณะ/สาขาที่สนใจ','เช่น วิศวกรรมคอมพิวเตอร์','text',true)}
           </div>
@@ -680,10 +680,10 @@
       if (required.some(id => !profile[id])) return notify('กรุณากรอกชื่อ นามสกุล ชื่อเล่น ชั้น ห้อง และเลขที่ให้ครบ');
       if (!profile.targetUniversity) return notify('กรุณาเลือกหรือพิมพ์ชื่อมหาวิทยาลัย');
       if (!profile.targetFaculty) return notify('กรุณาเลือกหรือพิมพ์ชื่อคณะ/สาขา');
-      const numericLimits = { classLevel:[1,6], room:[1,15], number:[1,60] };
+      const numericLimits = { classLevel:[1,6] };
       for (const [id, limits] of Object.entries(numericLimits)) {
         const value = Number(profile[id]);
-        if (!Number.isInteger(value) || value < limits[0] || value > limits[1]) return notify(`${id === 'classLevel' ? 'ชั้น' : id === 'room' ? 'ห้อง' : 'เลขที่'}ต้องเป็นตัวเลข ${limits[0]}–${limits[1]}`);
+        if (!Number.isInteger(value) || value < limits[0] || value > limits[1]) return notify(`${id === 'classLevel' ? 'มัธยมศึกษาปีที่' : id === 'room' ? 'ห้อง' : 'เลขที่'}ต้องเป็นตัวเลข ${limits[0]}–${limits[1]}`);
         profile[id] = String(value);
       }
       state.profile = profile; state.answers = {}; state.currentRound = 0; renderQuiz();
