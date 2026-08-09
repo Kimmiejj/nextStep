@@ -1227,13 +1227,13 @@
         const bounds=element.getBoundingClientRect();
         if(!bounds.width||!bounds.height) throw new Error('ไม่พบเนื้อหาสำหรับสร้าง PDF');
         const totalHeight=Math.ceil(bounds.height);
-        const pageHeight=Math.round(bounds.width*297/210);
-        const sectionTops=Array.from(element.querySelectorAll('.teacher-print-round,.student-response-round')).map(section=>Math.max(0,Math.round(section.getBoundingClientRect().top-bounds.top)));
+        const pageHeight=Math.round(bounds.width*270/194);
+        const breakTops=Array.from(element.querySelectorAll('.teacher-print-round,.student-response-round,.teacher-print-question,.student-response-question')).map(section=>Math.max(0,Math.round(section.getBoundingClientRect().top-bounds.top)));
         const pageStarts=[0];
         let cursor=0;
         while(cursor<totalHeight){
           const maxEnd=Math.min(totalHeight,cursor+pageHeight);
-          const cuts=sectionTops.filter(top=>top>cursor+24&&top<=maxEnd);
+          const cuts=breakTops.filter(top=>top>cursor+24&&top<=maxEnd);
           const next=cuts.length?cuts[cuts.length-1]:maxEnd;
           if(next<=cursor) break;
           pageStarts.push(next);
@@ -1259,8 +1259,11 @@
           if(index) pdf.addPage();
           const canvas=await renderPage(pageStarts[index],pageStarts[index+1]);
           const imageWidth=194;
-          const imageHeight=Math.min(281,imageWidth*canvas.height/canvas.width);
+          const imageHeight=Math.min(270,imageWidth*canvas.height/canvas.width);
           pdf.addImage(canvas.toDataURL('image/jpeg',.96),'JPEG',8,8,imageWidth,imageHeight,undefined,'FAST');
+          pdf.setFontSize(8);
+          pdf.setTextColor(126,140,151);
+          pdf.text(`TCAS Compass - Page ${index+1}`,202,289,{align:'right'});
         }
         pdf.save(filename);
         notify('ดาวน์โหลดไฟล์ PDF เรียบร้อยแล้ว');
