@@ -700,7 +700,7 @@
     function renderQuestion(q,i) {
       const answer = state.answers[q.id];
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
-      const input = q.type === 'textarea' || q.type === 'text' ? `<textarea data-answer="${q.id}" placeholder="เขียนคำตอบสั้น ๆ ได้เลย">${escapeHtml(answer || '')}</textarea>` : `<div class="options">${q.options.map((option,index)=>{ const checked = Array.isArray(answer) ? answer.indexOf(String(index))>=0 : String(answer||'')===String(index); const inputType=q.type==='checkbox'?'checkbox':'radio'; return `<label class="option"><input type="${inputType}" name="${q.id}" value="${index}" ${checked?'checked':''} onchange="saveCurrentAnswer('${q.id}')"><span>${escapeHtml(option.label)}</span></label>`; }).join('')}</div>`;
+      const input = q.type === 'textarea' || q.type === 'text' ? `<textarea data-answer="${q.id}" placeholder="เขียนอธิบายพอสังเขป">${escapeHtml(answer || '')}</textarea>` : `<div class="options">${q.options.map((option,index)=>{ const checked = Array.isArray(answer) ? answer.indexOf(String(index))>=0 : String(answer||'')===String(index); const inputType=q.type==='checkbox'?'checkbox':'radio'; return `<label class="option"><input type="${inputType}" name="${q.id}" value="${index}" ${checked?'checked':''} onchange="saveCurrentAnswer('${q.id}')"><span>${escapeHtml(option.label)}</span></label>`; }).join('')}</div>`;
       return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}${input}</article>`;
     }
 
@@ -826,7 +826,7 @@
       if (isUniversityTargetsQuestion(q)) return renderUniversityTargetsQuestion(q,i);
       if (isExamScoresQuestion(q)) return renderExamScoresQuestion(q,i);
       if (isText) {
-        return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<textarea data-answer="${q.id}" placeholder="เขียนคำตอบสั้น ๆ ได้เลย">${escapeHtml(answer || '')}</textarea></article>`;
+        return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<textarea data-answer="${q.id}" placeholder="เขียนอธิบายพอสังเขป">${escapeHtml(answer || '')}</textarea></article>`;
       }
       const inputType = q.type === 'checkbox' ? 'checkbox' : 'radio';
       const fillOptions = q.type === 'radio' ? q.options.map((option,index) => ({option,index,prompt:fillPromptForOption(option)})).filter(item => item.prompt) : [];
