@@ -1241,12 +1241,15 @@
         }
         const pdf=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
         const renderPage=async(start,end)=>html2canvas(element,{scale:1.5,useCORS:false,allowTaint:false,backgroundColor:'#fff',scrollX:0,scrollY:0,windowWidth:794,width:794,y:start,height:Math.max(1,end-start),onclone:clonedDocument=>{
-          clonedDocument.querySelectorAll('.app-shell').forEach(node=>node.style.setProperty('visibility','hidden','important'));
+          clonedDocument.body.style.setProperty('margin','0','important');
+          clonedDocument.body.style.setProperty('padding','0','important');
+          clonedDocument.querySelectorAll('.app-shell').forEach(node=>node.style.setProperty('display','none','important'));
           const clonedElement=element.id?clonedDocument.getElementById(element.id):null;
           if(clonedElement){
-            clonedElement.style.setProperty('position','static','important');
-            clonedElement.style.setProperty('top','auto','important');
-            clonedElement.style.setProperty('left','auto','important');
+            clonedElement.style.setProperty('position','absolute','important');
+            clonedElement.style.setProperty('top','0','important');
+            clonedElement.style.setProperty('left','0','important');
+            clonedElement.style.setProperty('width','794px','important');
             clonedElement.style.setProperty('display','block','important');
             clonedElement.style.setProperty('visibility','visible','important');
             clonedElement.style.setProperty('opacity','1','important');
