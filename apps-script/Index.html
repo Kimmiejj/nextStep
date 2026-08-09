@@ -174,7 +174,7 @@
     .loading { display:grid; place-items:center; min-height:180px; color:var(--muted); }
     .spinner { width:28px;height:28px;border:3px solid #e1edf2;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px; }
     @keyframes spin { to { transform:rotate(360deg); } }
-    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:60; background:#20283a; color:#fff; padding:12px 16px; border-radius:12px; box-shadow:var(--shadow); }
+    .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:60; max-width:min(760px,calc(100vw - 32px)); white-space:pre-line; line-height:1.55; background:#20283a; color:#fff; padding:12px 16px; border-radius:12px; box-shadow:var(--shadow); }
     .print-only { display:none; }
     .print-profile { padding:0 0 16px; border-bottom:2px solid #e8eef3; margin-bottom:18px; }
     .print-profile-title { font-size:22px; margin:0 0 14px; color:#3d5874; }
@@ -986,10 +986,26 @@
       return true;
     }
 
+    function requiredQuestionLabel(question) {
+      const roundIndex = state.rounds.findIndex(round => round.id === question.round);
+      const round = roundIndex >= 0 ? state.rounds[roundIndex] : null;
+      const questionIndex = state.questions.filter(item => item.round === question.round).findIndex(item => item.id === question.id);
+      const location = round ? `${roundTitle(round, roundIndex)} ข้อ ${questionIndex + 1}` : `ข้อ ${questionIndex + 1}`;
+      return `${location}: ${question.prompt}`;
+    }
+
     function submitQuiz() {
       collectAnswers();
-      const missing = state.questions.filter(q => q.required && !answerIsComplete(q,state.answers[q.id])).map(q => q.id);
-      if (missing.length) return notify('มีคำถามที่ยังตอบไม่ครบ กรุณาเลือกคำตอบและกรอกช่องเพิ่มเติมให้ครบก่อนดูผล');
+      const missing = state.questions.filter(q => q.required && !answerIsComplete(q,state.answers[q.id]));
+      if (missing.length) {
+        const firstMissingRound = state.rounds.findIndex(round => round.id === missing[0].round);
+        if (firstMissingRound >= 0 && firstMissingRound !== state.currentRound) {
+          state.currentRound = firstMissingRound;
+          renderQuiz();
+          window.scrollTo({top:0,behavior:'smooth'});
+        }
+        return notify(`ยังตอบข้อ required ไม่ครบ กรุณาตอบข้อเหล่านี้ก่อนส่ง:\n${missing.map(requiredQuestionLabel).join('\n')}`);
+      }
       app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังจัดทำสรุปคำถามและคำตอบให้คุณ…</div></div>';
       google.script.run.withSuccessHandler(result=>{ state.result=result; renderResult(); window.scrollTo({top:0,behavior:'smooth'}); }).withFailureHandler(showError).submitResponse({profile:state.profile,answers:state.answers});
     }
@@ -1497,7 +1513,7 @@
     function switchToStudentMode(){ if (state.teacherToken) google.script.run.teacherLogout(state.teacherToken); state.teacherToken=''; state.teacherName=''; state.responses=[]; state.teacherFilters={query:'',classLevel:'',room:''}; renderHome(); window.scrollTo({top:0,behavior:'smooth'}); }
     function logoutTeacher(){ switchToStudentMode(); }
     function app(){return document.getElementById('app');}
-    function notify(message){const el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');setTimeout(()=>el.classList.add('hidden'),3200);}
+    function notify(message){const el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');setTimeout(()=>el.classList.add('hidden'),8000);}
     function showError(error){notify(error&&error.message?error.message:'เกิดข้อผิดพลาด กรุณาลองใหม่');}
     function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
     function escapeAttr(value){return escapeHtml(value).replace(/`/g,'&#96;');}
