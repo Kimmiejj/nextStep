@@ -394,7 +394,7 @@
   </main>
   <div id="toast" class="toast hidden"></div>
   <script>
-    const state = { config:{}, rounds:[], questions:[], sourceLinks:[], profile:{}, answers:{}, currentRound:0, result:null, teacherToken:'', responses:[], selectedUniversity:null, selectedFaculty:null, customUniversity:false, customFaculty:false, pdfSaveInFlight:false };
+    const state = { config:{}, rounds:[], questions:[], sourceLinks:[], profile:{}, answers:{}, currentRound:0, result:null, teacherToken:'', responses:[], teacherFilters:{query:'',classLevel:'',room:''}, selectedUniversity:null, selectedFaculty:null, customUniversity:false, customFaculty:false, pdfSaveInFlight:false };
     const UNIVERSITY_DATA_URL = 'https://raw.githubusercontent.com/Hipo/university-domains-list/master/world_universities_and_domains.json';
     const THAI_UNIVERSITY_NAMES = new Map([
       ['asia pacific international university','มหาวิทยาลัยนานาชาติเอเชีย-แปซิฟิก'],
@@ -1060,16 +1060,21 @@
       google.script.run.withSuccessHandler(session=>{state.teacherToken=session.token;state.teacherName=session.displayName;loadDashboard();}).withFailureHandler(showError).teacherLogin(username,password);
     }
 
-    function loadDashboard(filters) { app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังโหลดข้อมูลนักเรียน…</div></div>'; google.script.run.withSuccessHandler(rows=>{state.responses=rows;renderDashboard();}).withFailureHandler(showError).listResponses(state.teacherToken,filters||{}); }
+    function loadDashboard(filters) { const activeFilters=filters===undefined?(state.teacherFilters||{}):(filters||{}); state.teacherFilters={query:String(activeFilters.query||''),classLevel:String(activeFilters.classLevel||'').trim(),room:String(activeFilters.room||'').trim()}; app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังโหลดข้อมูลนักเรียน…</div></div>'; google.script.run.withSuccessHandler(rows=>{state.responses=rows;renderDashboard();}).withFailureHandler(showError).listResponses(state.teacherToken,state.teacherFilters); }
 
     function renderDashboard() {
       const rows = state.responses;
       const latest = rows.length ? rows[0].createdAt : '-';
       app().innerHTML=`<section class="card"><div class="section-heading"><div><span class="eyebrow">โหมดครู</span><h2>แดชบอร์ดข้อมูลนักเรียน</h2><div class="muted small" style="margin-top:6px">สวัสดี ${escapeHtml(state.teacherName||'คุณครู')} · ${rows.length} รายการตามตัวกรองปัจจุบัน</div></div><div class="actions" style="margin:0"><button class="secondary-button" onclick="switchToStudentMode()">← โหมดนักเรียน</button><button class="danger-button" onclick="logoutTeacher()">ออกจากระบบ</button></div></div><div class="stats-grid"><div class="stat"><div class="stat-label">จำนวนผู้ตอบ</div><div class="stat-value">${rows.length}</div></div><div class="stat"><div class="stat-label">จำนวนรอบการเรียนรู้</div><div class="stat-value">${state.rounds.length}</div></div><div class="stat"><div class="stat-label">จำนวนหัวข้อคำถาม</div><div class="stat-value">${state.questions.length}</div></div><div class="stat"><div class="stat-label">ส่งล่าสุด</div><div class="stat-value" style="font-size:16px">${escapeHtml(latest)}</div></div></div><div class="dashboard-toolbar no-print"><div class="field"><label class="field-label">ค้นหา</label><input id="filterQuery" placeholder="ชื่อ นามสกุล คณะ…"></div><div class="field"><label class="field-label">ชั้น</label><input id="filterClass" placeholder="ม.6"></div><div class="field"><label class="field-label">ห้อง</label><input id="filterRoom" placeholder="1"></div><button class="primary-button" onclick="applyFilters()">กรองข้อมูล</button></div><div class="table-wrap">${rows.length?`<table><thead><tr><th>วันที่ส่ง</th><th>นักเรียน</th><th>ชั้น/ห้อง</th><th>เป้าหมาย</th><th>สถานะ</th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="clickable" onclick="showDetail(${i})"><td>${escapeHtml(r.createdAt)}</td><td><strong>${escapeHtml(r.firstName+' '+r.lastName)}</strong><br><span class="muted">${escapeHtml(r.nickname)}</span></td><td>${escapeHtml(r.classLevel)}/${escapeHtml(r.room)} เลขที่ ${escapeHtml(r.number)}</td><td>${escapeHtml(r.targetFaculty||'-')}<br><span class="muted">${escapeHtml(r.targetUniversity||'')}</span></td><td><span class="pill">ส่งข้อมูลแล้ว</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty">ยังไม่พบข้อมูลตามตัวกรอง</div>'}</div></section>`;
+      const filters=state.teacherFilters||{};
+      ['filterQuery','filterClass','filterRoom'].forEach((id,index)=>{const field=document.getElementById(id);if(field)field.value=[filters.query,filters.classLevel,filters.room][index]||'';});
+      const toolbar=document.querySelector('.dashboard-toolbar');
+      if(toolbar&&!toolbar.querySelector('[data-clear-filters]')){const clearButton=document.createElement('button');clearButton.type='button';clearButton.className='secondary-button';clearButton.dataset.clearFilters='true';clearButton.textContent='ล้างตัวกรอง';clearButton.onclick=clearFilters;toolbar.appendChild(clearButton);}
     }
 
-    function applyFilters(){ loadDashboard({query:document.getElementById('filterQuery').value,classLevel:document.getElementById('filterClass').value.trim(),room:document.getElementById('filterRoom').value.trim()}); }
-    function currentFilters(){ return {query:document.getElementById('filterQuery')?.value||'',classLevel:document.getElementById('filterClass')?.value.trim()||'',room:document.getElementById('filterRoom')?.value.trim()||''}; }
+    function applyFilters(){ loadDashboard({query:document.getElementById('filterQuery')?.value||'',classLevel:document.getElementById('filterClass')?.value.trim()||'',room:document.getElementById('filterRoom')?.value.trim()||''}); }
+    function clearFilters(){ loadDashboard({}); }
+    function currentFilters(){ return state.teacherFilters||{query:'',classLevel:'',room:''}; }
     function downloadCsv(){ google.script.run.withSuccessHandler(csv=>{const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='tcas-compass-responses.csv';a.click();URL.revokeObjectURL(url);}).withFailureHandler(showError).exportResponsesCsv(state.teacherToken,currentFilters()); }
     function legacyShowDetail(i){
       const r=state.responses[i];
@@ -1139,14 +1144,47 @@
       const html2pdf=await loadHtml2Pdf();
       document.body.classList.add('pdf-exporting');
       try{
-        await html2pdf().set({
+        // Generate the PDF in browser memory only. The backend receives response
+        // data separately; it never receives or stores this PDF blob.
+        element.style.setProperty('position','absolute','important');
+        element.style.setProperty('top','0','important');
+        element.style.setProperty('left','0','important');
+        element.style.setProperty('display','block','important');
+        element.style.setProperty('visibility','visible','important');
+        element.style.setProperty('opacity','1','important');
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        if(document.fonts?.ready) await document.fonts.ready;
+        const bounds=element.getBoundingClientRect();
+        if(!bounds.width||!bounds.height) throw new Error('ไม่พบเนื้อหาสำหรับสร้าง PDF');
+        const exportScale=Math.max(.75,Math.min(2,14000/bounds.height));
+        const pdfBlob=await html2pdf().set({
           margin:[8,8,8,8],
           filename:filename,
           image:{type:'jpeg',quality:.96},
-          html2canvas:{scale:2,useCORS:true,backgroundColor:'#fff',scrollX:0,scrollY:0,windowWidth:794},
+          html2canvas:{scale:exportScale,useCORS:false,allowTaint:false,backgroundColor:'#fff',scrollX:0,scrollY:0,windowWidth:794,width:794,onclone:clonedDocument=>{
+            clonedDocument.querySelectorAll('.app-shell').forEach(node=>node.style.setProperty('visibility','hidden','important'));
+            const clonedElement=element.id?clonedDocument.getElementById(element.id):null;
+            if(clonedElement){
+              clonedElement.style.setProperty('position','static','important');
+              clonedElement.style.setProperty('top','auto','important');
+              clonedElement.style.setProperty('left','auto','important');
+              clonedElement.style.setProperty('display','block','important');
+              clonedElement.style.setProperty('visibility','visible','important');
+              clonedElement.style.setProperty('opacity','1','important');
+            }
+          }},
           jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
           pagebreak:{mode:['css','legacy'],avoid:['.teacher-print-question','.student-response-question']}
-        }).from(element).save();
+        }).from(element).outputPdf('blob');
+        const pdfUrl=URL.createObjectURL(pdfBlob);
+        const downloadLink=document.createElement('a');
+        downloadLink.href=pdfUrl;
+        downloadLink.download=filename;
+        downloadLink.rel='noopener';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+        window.setTimeout(()=>URL.revokeObjectURL(pdfUrl),1000);
         notify('ดาวน์โหลดไฟล์ PDF เรียบร้อยแล้ว');
       }finally{
         document.body.classList.remove('pdf-exporting');
@@ -1197,7 +1235,7 @@
     function detail(label,value){return `<div class="detail-item"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`;}
     function closeModal(event){if(!event||['detailModal','studentPdfPreviewModal'].includes(event.target.id)){document.getElementById('detailModal')?.remove();document.getElementById('studentPdfPreviewModal')?.remove();}}
     function topRound(rows){if(!rows.length)return'-';const scores=['r1Score','r2Score','r3Score','r4Score'].map(k=>rows.reduce((a,r)=>a+r[k],0)/rows.length);const idx=scores.indexOf(Math.max(...scores));return 'รอบที่ '+(idx+1);}
-    function switchToStudentMode(){ if (state.teacherToken) google.script.run.teacherLogout(state.teacherToken); state.teacherToken=''; state.teacherName=''; state.responses=[]; renderHome(); window.scrollTo({top:0,behavior:'smooth'}); }
+    function switchToStudentMode(){ if (state.teacherToken) google.script.run.teacherLogout(state.teacherToken); state.teacherToken=''; state.teacherName=''; state.responses=[]; state.teacherFilters={query:'',classLevel:'',room:''}; renderHome(); window.scrollTo({top:0,behavior:'smooth'}); }
     function logoutTeacher(){ switchToStudentMode(); }
     function app(){return document.getElementById('app');}
     function notify(message){const el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');setTimeout(()=>el.classList.add('hidden'),3200);}
