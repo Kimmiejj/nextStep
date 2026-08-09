@@ -1335,14 +1335,29 @@
     function isIosPdfDevice_(){
       return /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     }
-    function isMobilePdfDevice_(){
-      return isIosPdfDevice_() || /Android/i.test(navigator.userAgent);
+    function showPdfDownloadFallback_(pdfBlob,filename){
+      const existing=document.getElementById('pdfDownloadFallback');
+      existing?.remove();
+      const url=URL.createObjectURL(pdfBlob);
+      const container=document.createElement('div');
+      container.id='pdfDownloadFallback';
+      container.style.cssText='display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;padding:10px 0;color:#607487;font-size:13px;line-height:1.5;';
+      const text=document.createElement('span');
+      text.textContent='ถ้าดาวน์โหลดอัตโนมัติไม่ได้ ให้แตะปุ่มนี้เพื่อเปิดหรือบันทึกไฟล์';
+      const link=document.createElement('a');
+      link.className='primary-button';
+      link.href=url;
+      link.download=filename;
+      link.target='_blank';
+      link.rel='noopener';
+      link.textContent='เปิดไฟล์ PDF';
+      container.append(text,link);
+      const host=document.querySelector('#studentPdfPreviewModal .pdf-preview-actions') || document.querySelector('.teacher-print-actions') || document.body;
+      host.appendChild(container);
+      window.setTimeout(()=>URL.revokeObjectURL(url),300000);
     }
     async function downloadPdfElementAsBlocks(element,filename){
       if(!element) throw new Error('ไม่พบเนื้อหาสำหรับสร้าง PDF');
-      let mobilePdfWindow=null;
-      let mobilePdfDelivered=false;
-      if(isMobilePdfDevice_()) mobilePdfWindow=window.open('about:blank','_blank');
       let renderRoot;
       try{
         const {html2canvas,jsPDF}=await loadPdfRenderer_();
@@ -1470,32 +1485,24 @@
           if(navigator.canShare({files:[pdfFile]})){
             try{
               await navigator.share({files:[pdfFile],title:filename});
-              mobilePdfDelivered=true;
-              if(mobilePdfWindow && !mobilePdfWindow.closed) mobilePdfWindow.close();
               notify('เลือกบันทึกไฟล์ PDF จากเมนูแชร์ได้เลย');
               return;
             }catch(error){
               if(error?.name==='AbortError'){
-                mobilePdfDelivered=true;
-                if(mobilePdfWindow && !mobilePdfWindow.closed) mobilePdfWindow.close();
                 notify('ยกเลิกการบันทึกไฟล์ PDF แล้ว');
                 return;
               }
             }
           }
         }
-        if(mobilePdfWindow && !mobilePdfWindow.closed){
-          const pdfUrl=URL.createObjectURL(pdfBlob);
-          mobilePdfWindow.location.href=pdfUrl;
-          mobilePdfDelivered=true;
-          window.setTimeout(()=>URL.revokeObjectURL(pdfUrl),60000);
-          notify('เปิดไฟล์ PDF ในแท็บใหม่แล้ว กด Share หรือเมนูเบราว์เซอร์เพื่อบันทึกไฟล์');
+        if(isIosPdfDevice_()){
+          showPdfDownloadFallback_(pdfBlob,filename);
+          notify('กดปุ่มเปิดไฟล์ PDF ในหน้าต่างนี้เพื่อบันทึกไฟล์');
         }else{
           pdf.save(filename);
           notify('ดาวน์โหลดไฟล์ PDF เรียบร้อยแล้ว');
         }
       }finally{
-        if(mobilePdfWindow && !mobilePdfDelivered && !mobilePdfWindow.closed) mobilePdfWindow.close();
         renderRoot?.remove();
         document.body.classList.remove('pdf-exporting');
       }
