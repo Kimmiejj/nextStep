@@ -542,14 +542,14 @@
         </section>
         <section class="card no-print"><div class="section-heading"><div><h2>เริ่มจากเล่าเรื่องของเรา 📝</h2><div class="muted small" style="margin-top:6px">ใช้เวลาประมาณ 5–8 นาที · ค่อย ๆ ตอบตามความรู้สึกได้เลย</div></div></div>
           <div class="grid-form" id="profileForm">
-            ${field('firstName','ชื่อจริง','เช่น พิมพ์ชนก','text',false)}
-            ${field('lastName','นามสกุล','เช่น ใจดี','text',false)}
-            ${field('nickname','ชื่อเล่น','เช่น พิม','text',false)}
+            ${field('firstName','ชื่อจริง','','text',false)}
+            ${field('lastName','นามสกุล','','text',false)}
+            ${field('nickname','ชื่อเล่น','','text',false)}
             ${field('classLevel','มัธยมศึกษาปีที่','กรอก 1 ถึง 6','number',false,'min="1" max="6" step="1" inputmode="numeric" oninput="clampProfileNumber(this, 1, 6)"')}
             ${field('room','ห้อง','','number',false,'inputmode="numeric"')}
             ${field('number','เลขที่','','number',false,'inputmode="numeric"')}
-            ${field('targetUniversity','มหาวิทยาลัยที่สนใจ','เช่น มหาวิทยาลัย…','text',true)}
-            ${field('targetFaculty','คณะ/สาขาที่สนใจ','เช่น วิศวกรรมคอมพิวเตอร์','text',true)}
+            ${field('targetUniversity','มหาวิทยาลัยที่สนใจ','','text',true)}
+            ${field('targetFaculty','คณะ/สาขาที่สนใจ','','text',true)}
           </div>
           <div class="actions"><button class="primary-button" onclick="startQuiz()">เริ่มแบบประเมิน <span>→</span></button></div>
         </section>`;
@@ -557,7 +557,8 @@
 
     function field(id,label,placeholder,type,wide,extra='') {
       if (id === 'targetUniversity' || id === 'targetFaculty') return pickerField(id,label,placeholder,wide);
-      return `<div class="field ${wide?'wide':''}"><label class="field-label" for="${id}">${label}</label><input id="${id}" type="${type}" placeholder="${placeholder}" autocomplete="off" ${extra}></div>`;
+      const placeholderAttribute = placeholder ? ` placeholder="${placeholder}"` : '';
+      return `<div class="field ${wide?'wide':''}"><label class="field-label" for="${id}">${label}</label><input id="${id}" type="${type}"${placeholderAttribute} autocomplete="off" ${extra}></div>`;
     }
 
     function clampProfileNumber(input, min, max) {
@@ -571,7 +572,8 @@
     function pickerField(id,label,placeholder,wide) {
       const faculty = id === 'targetFaculty';
       const hint = faculty ? 'เลือกมหาวิทยาลัยก่อน แล้วค้นหาคณะ/สาขาจากรายการ หรือเลือก “อื่น ๆ” เพื่อพิมพ์เอง' : 'รายชื่อมหาวิทยาลัยทั่วโลก · พิมพ์เพื่อค้นหา หรือเลือก “อื่น ๆ” หากไม่พบ';
-      return `<div id="${id}Picker" class="field ${wide?'wide':''} ${faculty?'is-hidden':''}"><label class="field-label" for="${id}">${label}</label><div class="picker"><input id="${id}" type="text" placeholder="${placeholder}" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" ${faculty?'disabled':''} oninput="handlePickerInput('${id}',this.value)" onfocus="openPicker('${id}')" onkeydown="handlePickerKeydown(event,'${id}')" onblur="closePickerLater('${id}')"><div id="${id}Suggestions" class="picker-menu" role="listbox" hidden></div></div><div id="${id}Hint" class="field-hint">${hint}</div></div>`;
+      const placeholderAttribute = placeholder ? ` placeholder="${placeholder}"` : '';
+      return `<div id="${id}Picker" class="field ${wide?'wide':''} ${faculty?'is-hidden':''}"><label class="field-label" for="${id}">${label}</label><div class="picker"><input id="${id}" type="text"${placeholderAttribute} autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" ${faculty?'disabled':''} oninput="handlePickerInput('${id}',this.value)" onfocus="openPicker('${id}')" onkeydown="handlePickerKeydown(event,'${id}')" onblur="closePickerLater('${id}')"><div id="${id}Suggestions" class="picker-menu" role="listbox" hidden></div></div><div id="${id}Hint" class="field-hint">${hint}</div></div>`;
     }
 
     function loadUniversityCatalog() {
@@ -780,9 +782,10 @@
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
       const targetField = (index, key, label, placeholder) => {
         const value = answer[index]?.[key] || '';
-        return `<label class="field"><span class="field-label">${label}</span><input data-target-field="${key}" type="text" placeholder="${placeholder}" value="${escapeAttr(value)}" oninput="saveUniversityTargetsAnswer('${q.id}')"></label>`;
+        const placeholderAttribute = placeholder ? ` placeholder="${placeholder}"` : '';
+        return `<label class="field"><span class="field-label">${label}</span><input data-target-field="${key}" type="text"${placeholderAttribute} value="${escapeAttr(value)}" oninput="saveUniversityTargetsAnswer('${q.id}')"></label>`;
       };
-      const rows = Array.from({length:universityTargetLimit(q)}, (_, index) => `<div class="university-target-row" data-target-row="${q.id}"><div class="university-target-rank">อันดับที่ ${index + 1}</div><div class="university-target-fields">${targetField(index,'university','มหาวิทยาลัย','เช่น จุฬาลงกรณ์มหาวิทยาลัย')}${targetField(index,'faculty','คณะ','เช่น วิศวกรรมศาสตร์')}${targetField(index,'major','สาขา','เช่น วิศวกรรมคอมพิวเตอร์')}</div></div>`).join('');
+      const rows = Array.from({length:universityTargetLimit(q)}, (_, index) => `<div class="university-target-row" data-target-row="${q.id}"><div class="university-target-rank">อันดับที่ ${index + 1}</div><div class="university-target-fields">${targetField(index,'university','มหาวิทยาลัย','')}${targetField(index,'faculty','คณะ','')}${targetField(index,'major','สาขา','')}</div></div>`).join('');
       return `<article class="question-card"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="university-targets">${rows}</div></article>`;
     }
 
@@ -793,9 +796,10 @@
       const required = q.required ? '<span style="color:#d92d20">*</span>' : '';
       const targetField = (index, key, label, placeholder) => {
         const value = targets[index]?.[key] || '';
-        return `<label class="field"><span class="field-label">${label}</span><input data-conditional-target-field="${key}" type="text" placeholder="${placeholder}" value="${escapeAttr(value)}" oninput="saveConditionalUniversityTargetsAnswer('${q.id}')"></label>`;
+        const placeholderAttribute = placeholder ? ` placeholder="${placeholder}"` : '';
+        return `<label class="field"><span class="field-label">${label}</span><input data-conditional-target-field="${key}" type="text"${placeholderAttribute} value="${escapeAttr(value)}" oninput="saveConditionalUniversityTargetsAnswer('${q.id}')"></label>`;
       };
-      const rows = Array.from({length:3}, (_, index) => `<div class="university-target-row" data-conditional-target-row="${q.id}"><div class="university-target-rank">อันดับที่ ${index + 1}</div><div class="university-target-fields">${targetField(index,'university','มหาวิทยาลัย','เช่น จุฬาลงกรณ์มหาวิทยาลัย')}${targetField(index,'faculty','คณะ','เช่น วิศวกรรมศาสตร์')}${targetField(index,'major','สาขา','เช่น วิศวกรรมคอมพิวเตอร์')}</div></div>`).join('');
+      const rows = Array.from({length:3}, (_, index) => `<div class="university-target-row" data-conditional-target-row="${q.id}"><div class="university-target-rank">อันดับที่ ${index + 1}</div><div class="university-target-fields">${targetField(index,'university','มหาวิทยาลัย','')}${targetField(index,'faculty','คณะ','')}${targetField(index,'major','สาขา','')}</div></div>`).join('');
       const options = q.options.map((option,index) => `<label class="option"><input type="radio" name="${q.id}" value="${index}" ${choice === String(index) ? 'checked' : ''} onchange="saveConditionalUniversityTargetsAnswer('${q.id}')"><span>${escapeHtml(cleanOptionLabel(option))}</span></label>`).join('');
       return `<article class="question-card" data-conditional-target-question="${escapeAttr(q.id)}"><div class="question-top"><div class="question-no">${String(i+1).padStart(2,'0')}</div><div><h3>${escapeHtml(q.prompt)} ${required}</h3></div></div>${q.helper?`<div class="question-helper">${escapeHtml(q.helper)}</div>`:''}<div class="options">${options}</div><div class="conditional-target-wrap ${choice === '0' ? '' : 'is-hidden'}" data-conditional-target-wrap="${escapeAttr(q.id)}"><div class="university-targets">${rows}</div></div></article>`;
     }
