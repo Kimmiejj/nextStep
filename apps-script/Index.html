@@ -1109,7 +1109,7 @@
       report.style.width='794px';
       report.style.maxWidth='794px';
       report.style.margin='0 auto';
-      downloadPdfElement(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
+      downloadPdfElementByPages(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
     }
     function downloadStudentPdf(i){
       const r=state.responses[i];
@@ -1124,7 +1124,7 @@
       report.style.width='794px';
       report.style.maxWidth='794px';
       report.style.margin='0 auto';
-      downloadPdfElement(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
+      downloadPdfElementByPages(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
     }
     function loadHtml2Pdf(){
       if(window.html2pdf) return Promise.resolve(window.html2pdf);
@@ -1190,6 +1190,81 @@
         document.body.classList.remove('pdf-exporting');
       }
     }
+    function loadPdfRenderer_(){
+      const ready=()=>window.html2canvas&&window.jspdf?.jsPDF;
+      if(ready()) return Promise.resolve({html2canvas:window.html2canvas,jsPDF:window.jspdf.jsPDF});
+      const load=(src,key)=>new Promise((resolve,reject)=>{
+        const existing=document.querySelector(`script[data-pdf-library="${key}"]`);
+        if(existing){ existing.addEventListener('load',resolve,{once:true}); existing.addEventListener('error',()=>reject(new Error('โหลดตัวสร้าง PDF ไม่สำเร็จ')),{once:true}); return; }
+        const script=document.createElement('script');
+        script.dataset.pdfLibrary=key;
+        script.src=src;
+        script.onload=resolve;
+        script.onerror=()=>reject(new Error('โหลดตัวสร้าง PDF ไม่สำเร็จ'));
+        document.head.appendChild(script);
+      });
+      return Promise.all([
+        load('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js','html2canvas'),
+        load('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js','jspdf')
+      ]).then(()=>{
+        if(!ready()) throw new Error('ไม่พบตัวสร้าง PDF');
+        return {html2canvas:window.html2canvas,jsPDF:window.jspdf.jsPDF};
+      });
+    }
+    async function downloadPdfElementByPages(element,filename){
+      if(!element) throw new Error('ไม่พบเนื้อหาสำหรับสร้าง PDF');
+      const {html2canvas,jsPDF}=await loadPdfRenderer_();
+      document.body.classList.add('pdf-exporting');
+      try{
+        element.style.setProperty('position','absolute','important');
+        element.style.setProperty('top','0','important');
+        element.style.setProperty('left','0','important');
+        element.style.setProperty('display','block','important');
+        element.style.setProperty('visibility','visible','important');
+        element.style.setProperty('opacity','1','important');
+        await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+        if(document.fonts?.ready) await document.fonts.ready;
+        const bounds=element.getBoundingClientRect();
+        if(!bounds.width||!bounds.height) throw new Error('ไม่พบเนื้อหาสำหรับสร้าง PDF');
+        const totalHeight=Math.ceil(bounds.height);
+        const pageHeight=Math.round(bounds.width*297/210);
+        const sectionTops=Array.from(element.querySelectorAll('.teacher-print-round,.student-response-round')).map(section=>Math.max(0,Math.round(section.getBoundingClientRect().top-bounds.top)));
+        const pageStarts=[0];
+        let cursor=0;
+        while(cursor<totalHeight){
+          const maxEnd=Math.min(totalHeight,cursor+pageHeight);
+          const cuts=sectionTops.filter(top=>top>cursor+24&&top<=maxEnd);
+          const next=cuts.length?cuts[cuts.length-1]:maxEnd;
+          if(next<=cursor) break;
+          pageStarts.push(next);
+          cursor=next;
+        }
+        const pdf=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+        const renderPage=async(start,end)=>html2canvas(element,{scale:1.5,useCORS:false,allowTaint:false,backgroundColor:'#fff',scrollX:0,scrollY:0,windowWidth:794,width:794,y:start,height:Math.max(1,end-start),onclone:clonedDocument=>{
+          clonedDocument.querySelectorAll('.app-shell').forEach(node=>node.style.setProperty('visibility','hidden','important'));
+          const clonedElement=element.id?clonedDocument.getElementById(element.id):null;
+          if(clonedElement){
+            clonedElement.style.setProperty('position','static','important');
+            clonedElement.style.setProperty('top','auto','important');
+            clonedElement.style.setProperty('left','auto','important');
+            clonedElement.style.setProperty('display','block','important');
+            clonedElement.style.setProperty('visibility','visible','important');
+            clonedElement.style.setProperty('opacity','1','important');
+          }
+        }});
+        for(let index=0;index<pageStarts.length-1;index+=1){
+          if(index) pdf.addPage();
+          const canvas=await renderPage(pageStarts[index],pageStarts[index+1]);
+          const imageWidth=194;
+          const imageHeight=Math.min(281,imageWidth*canvas.height/canvas.width);
+          pdf.addImage(canvas.toDataURL('image/jpeg',.96),'JPEG',8,8,imageWidth,imageHeight,undefined,'FAST');
+        }
+        pdf.save(filename);
+        notify('ดาวน์โหลดไฟล์ PDF เรียบร้อยแล้ว');
+      }finally{
+        document.body.classList.remove('pdf-exporting');
+      }
+    }
     function downloadStudentResultPdf(){
       const submissionId=String(state.result?.submissionId||'');
       if(submissionId&&!submissionId.startsWith('local-')){
@@ -1227,7 +1302,7 @@
       clone.id='studentPdfExport';
       clone.classList.add('student-pdf-export');
       document.body.appendChild(clone);
-      try{ await downloadPdfElement(clone,'tcas-compass-learning-summary.pdf'); }
+      try{ await downloadPdfElementByPages(clone,'tcas-compass-learning-summary.pdf'); }
       catch(error){ showError(error); }
       finally{ clone.remove(); }
     }
