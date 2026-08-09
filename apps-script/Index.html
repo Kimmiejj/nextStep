@@ -1111,7 +1111,7 @@
       report.style.margin='0 auto';
       downloadPdfElementAsBlocks(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
     }
-    function downloadStudentPdf(i){
+    function legacyDownloadStudentPdf_(i){
       const r=state.responses[i];
       if(!r) return notify('ไม่พบข้อมูลนักเรียนสำหรับสร้างรายงาน');
       const answers=parseAnswers(r.answersJson);
@@ -1124,6 +1124,31 @@
       report.style.width='794px';
       report.style.maxWidth='794px';
       report.style.margin='0 auto';
+      downloadPdfElementAsBlocks(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
+    }
+    function buildUnifiedPdfReport_(profile,answers,createdAt){
+      const safeProfile=profile||{};
+      const safeAnswers=answers||{};
+      const roundQuestions=round=>state.questions.filter(q=>q.round===round.id);
+      const answerPresent=answer=>answer!==undefined&&answer!==null&&answer!==''&&!(Array.isArray(answer)&&answer.length===0)&&!(answer&&typeof answer==='object'&&!Array.isArray(answer)&&Object.keys(answer).length===0);
+      const answeredCount=questions=>questions.filter(q=>answerPresent(safeAnswers[q.id])).length;
+      const report=document.createElement('div');
+      report.className='teacher-print-report';
+      report.id='teacherPrintReport';
+      report.innerHTML=`<article class="teacher-print-page"><header class="teacher-print-header"><div class="teacher-print-kicker">TCAS Compass · เอกสารประกอบการแนะแนว</div><h1 class="teacher-print-title">สรุปข้อมูลการเรียนรู้ TCAS</h1><div class="teacher-print-subtitle">รายงานรายบุคคล · วันที่ส่งข้อมูล ${escapeHtml(createdAt||'-')}</div></header><section class="teacher-print-profile"><div class="teacher-print-profile-item"><small>ชื่อ</small><strong>${escapeHtml(safeProfile.firstName||'-')}</strong></div><div class="teacher-print-profile-item"><small>นามสกุล</small><strong>${escapeHtml(safeProfile.lastName||'-')}</strong></div><div class="teacher-print-profile-item"><small>ชื่อเล่น</small><strong>${escapeHtml(safeProfile.nickname||'-')}</strong></div><div class="teacher-print-profile-item"><small>ชั้น / ห้อง</small><strong>${escapeHtml(safeProfile.classLevel||'-')} / ${escapeHtml(safeProfile.room||'-')}</strong></div><div class="teacher-print-profile-item"><small>เลขที่</small><strong>${escapeHtml(safeProfile.number||'-')}</strong></div></section><div class="teacher-print-target"><strong>เป้าหมายที่ระบุไว้:</strong> มหาวิทยาลัย ${escapeHtml(safeProfile.targetUniversity||'-')} · คณะ/สาขา ${escapeHtml(safeProfile.targetFaculty||'-')}</div><section class="teacher-print-summary"><div class="teacher-print-summary-item"><small>จำนวนคำตอบทั้งหมด</small><strong>${state.questions.filter(q=>answerPresent(safeAnswers[q.id])).length} รายการ</strong></div><div class="teacher-print-summary-item"><small>จำนวนรอบที่ทบทวน</small><strong>${state.rounds.length} รอบ</strong></div></section><section class="teacher-print-rounds">${state.rounds.map((round,roundIndex)=>{const questions=roundQuestions(round);return `<section class="teacher-print-round"><div class="teacher-print-round-head"><div><div class="teacher-print-round-name">${escapeHtml(roundTitle(round,roundIndex))}</div><div style="margin-top:3px;color:#607487;font-size:11px">${escapeHtml(round.subtitle)}</div></div><div class="teacher-print-round-score">ทบทวนแล้ว ${answeredCount(questions)}/${questions.length}<small>ไม่มีการให้คะแนน</small></div></div>${questions.map((q,index)=>`<div class="teacher-print-question"><div class="teacher-print-question-label">คำถามที่ ${String(index+1).padStart(2,'0')}${q.section?' · '+escapeHtml(thaiSection(q.section)):''}</div><div class="teacher-print-question-prompt">${escapeHtml(q.prompt)}</div><div class="teacher-print-answer-box"><strong>คำตอบ:</strong> ${escapeHtml(answerForPrint(q,safeAnswers[q.id]))}</div></div>`).join('')}</section>`}).join('')}</section><footer class="teacher-print-footer">เอกสารนี้จัดทำเพื่อสรุปคำถามและคำตอบสำหรับใช้ประกอบการเรียนรู้และการแนะแนว ไม่มีการให้คะแนนหรือรับรองผลคัดเลือก ผู้เรียนควรตรวจประกาศและคุณสมบัติของหลักสูตรจริงทุกครั้ง</footer></article>`;
+      report.style.display='block';
+      report.style.width='794px';
+      report.style.maxWidth='794px';
+      report.style.margin='0 auto';
+      return report;
+    }
+    function downloadStudentPdf(i){
+      const r=state.responses[i];
+      if(!r) return notify('ไม่พบข้อมูลนักเรียนสำหรับสร้างรายงาน');
+      const answers=parseAnswers(r.answersJson);
+      document.getElementById('teacherPrintReport')?.remove();
+      const report=buildUnifiedPdfReport_(r,answers,r.createdAt);
+      document.body.appendChild(report);
       downloadPdfElementAsBlocks(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
     }
     function loadHtml2Pdf(){
@@ -1421,13 +1446,20 @@
         showError(error);
       }).submitResponse({profile:state.profile,answers:state.answers});
     }
-    function openStudentPdfPreview_(){
+    function legacyOpenStudentPdfPreview_(){
       const source=document.getElementById('report');
       if(!source) return notify('ไม่พบรายงานสำหรับดาวน์โหลด');
       const preview=source.cloneNode(true);
       preview.id='studentPdfPreviewContent';
       preview.classList.add('pdf-preview-content');
       preview.querySelectorAll('.no-print,.print-only').forEach(element=>element.remove());
+      document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="studentPdfPreviewModal" onclick="closeModal(event)"><div class="modal pdf-preview-modal" onclick="event.stopPropagation()"><div class="modal-head"><div><span class="eyebrow" style="margin:0 0 8px">ตรวจสอบเอกสาร</span><h2 style="margin:0">ตัวอย่างสรุปข้อมูลการเรียนรู้</h2><div class="muted small" style="margin-top:5px">ตรวจสอบเนื้อหาก่อนกดดาวน์โหลด / บันทึกเป็น PDF</div></div><button class="icon-button" onclick="closeModal()" aria-label="ปิดหน้าต่าง">×</button></div><div class="pdf-preview-body" id="studentPdfPreviewBody"></div><div class="pdf-preview-actions"><button class="secondary-button" onclick="closeModal()">ปิด</button><button class="primary-button" onclick="downloadStudentResultPdfFile()">ดาวน์โหลด / บันทึกเป็น PDF</button></div></div></div>`);
+      document.getElementById('studentPdfPreviewBody').appendChild(preview);
+    }
+    function openStudentPdfPreview_(){
+      const preview=buildUnifiedPdfReport_(state.profile,state.answers,state.result?.createdAt||'-');
+      preview.id='studentPdfPreviewContent';
+      preview.classList.add('pdf-preview-content');
       document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="studentPdfPreviewModal" onclick="closeModal(event)"><div class="modal pdf-preview-modal" onclick="event.stopPropagation()"><div class="modal-head"><div><span class="eyebrow" style="margin:0 0 8px">ตรวจสอบเอกสาร</span><h2 style="margin:0">ตัวอย่างสรุปข้อมูลการเรียนรู้</h2><div class="muted small" style="margin-top:5px">ตรวจสอบเนื้อหาก่อนกดดาวน์โหลด / บันทึกเป็น PDF</div></div><button class="icon-button" onclick="closeModal()" aria-label="ปิดหน้าต่าง">×</button></div><div class="pdf-preview-body" id="studentPdfPreviewBody"></div><div class="pdf-preview-actions"><button class="secondary-button" onclick="closeModal()">ปิด</button><button class="primary-button" onclick="downloadStudentResultPdfFile()">ดาวน์โหลด / บันทึกเป็น PDF</button></div></div></div>`);
       document.getElementById('studentPdfPreviewBody').appendChild(preview);
     }
