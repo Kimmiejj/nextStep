@@ -1332,12 +1332,21 @@
         document.body.classList.remove('pdf-exporting');
       }
     }
+    function isIosPdfDevice_(){
+      return /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+    function isMobilePdfDevice_(){
+      return isIosPdfDevice_() || /Android/i.test(navigator.userAgent);
+    }
     async function downloadPdfElementAsBlocks(element,filename){
       if(!element) throw new Error('ไม่พบเนื้อหาสำหรับสร้าง PDF');
-      const {html2canvas,jsPDF}=await loadPdfRenderer_();
-      document.body.classList.add('pdf-exporting');
+      let mobilePdfWindow=null;
+      let mobilePdfDelivered=false;
+      if(isMobilePdfDevice_()) mobilePdfWindow=window.open('about:blank','_blank');
       let renderRoot;
       try{
+        const {html2canvas,jsPDF}=await loadPdfRenderer_();
+        document.body.classList.add('pdf-exporting');
         const isTeacher=Boolean(element.querySelector('.teacher-print-page'));
         const sourceRoot=isTeacher?element.querySelector('.teacher-print-page'):element;
         const roundSelector=isTeacher?'.teacher-print-round':'.student-response-round';
@@ -1455,9 +1464,38 @@
           pdf.setTextColor(126,140,151);
           pdf.text(`TCAS Compass - Page ${index+1}`,202,289,{align:'right'});
         }
-        pdf.save(filename);
-        notify('ดาวน์โหลดไฟล์ PDF เรียบร้อยแล้ว');
+        const pdfBlob=pdf.output('blob');
+        if(isIosPdfDevice_() && typeof File !== 'undefined' && navigator.share && navigator.canShare){
+          const pdfFile=new File([pdfBlob],filename,{type:'application/pdf'});
+          if(navigator.canShare({files:[pdfFile]})){
+            try{
+              await navigator.share({files:[pdfFile],title:filename});
+              mobilePdfDelivered=true;
+              if(mobilePdfWindow && !mobilePdfWindow.closed) mobilePdfWindow.close();
+              notify('เลือกบันทึกไฟล์ PDF จากเมนูแชร์ได้เลย');
+              return;
+            }catch(error){
+              if(error?.name==='AbortError'){
+                mobilePdfDelivered=true;
+                if(mobilePdfWindow && !mobilePdfWindow.closed) mobilePdfWindow.close();
+                notify('ยกเลิกการบันทึกไฟล์ PDF แล้ว');
+                return;
+              }
+            }
+          }
+        }
+        if(mobilePdfWindow && !mobilePdfWindow.closed){
+          const pdfUrl=URL.createObjectURL(pdfBlob);
+          mobilePdfWindow.location.href=pdfUrl;
+          mobilePdfDelivered=true;
+          window.setTimeout(()=>URL.revokeObjectURL(pdfUrl),60000);
+          notify('เปิดไฟล์ PDF ในแท็บใหม่แล้ว กด Share หรือเมนูเบราว์เซอร์เพื่อบันทึกไฟล์');
+        }else{
+          pdf.save(filename);
+          notify('ดาวน์โหลดไฟล์ PDF เรียบร้อยแล้ว');
+        }
       }finally{
+        if(mobilePdfWindow && !mobilePdfDelivered && !mobilePdfWindow.closed) mobilePdfWindow.close();
         renderRoot?.remove();
         document.body.classList.remove('pdf-exporting');
       }
