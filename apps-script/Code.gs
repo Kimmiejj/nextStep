@@ -82,13 +82,17 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function compactQuestionRow_(row) {
-  let options = [];
+function parseQuestionOptions_(value) {
   try {
-    options = JSON.parse(row[6] || '[]').map(option => Object.assign({}, option, { label: String(option.label || '') }));
+    const parsed = value ? JSON.parse(value) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
-    options = [];
+    return [];
   }
+}
+
+function compactQuestionRow_(row) {
+  const options = parseQuestionOptions_(row[6]).map(option => Object.assign({}, option, { label: String(option.label || '') }));
   return [row[0], row[1], row[2], row[3], row[4], row[5], JSON.stringify(options), row[7], row[11]];
 }
 
@@ -99,12 +103,7 @@ function migrateQuestionsSheet() {
   const headers = values.shift();
   const ix = headerIndex_(headers);
   const rows = values.filter(row => row[ix.id]).map(row => {
-    let options = [];
-    try {
-      options = JSON.parse(row[ix.options_json] || '[]').map(option => ({ label: String(option.label || '') }));
-    } catch (e) {
-      options = [];
-    }
+    const options = parseQuestionOptions_(row[ix.options_json]).map(option => ({ label: String(option.label || '') }));
     return [
       row[ix.id], row[ix.round], row[ix.section], row[ix.type], row[ix.prompt], row[ix.helper],
       JSON.stringify(options), row[ix.required], row[ix.active] === undefined ? 'TRUE' : row[ix.active]
@@ -289,9 +288,7 @@ function readQuestions_() {
   return values.filter(row => String(row[ix.active]).toUpperCase() !== 'FALSE' && row[ix.id] && String(row[ix.prompt] || '').trim()).map(row => {
     const round = normalizeRound_(row[ix.round]);
     if (!round) return null;
-    let options = [];
-    try { options = row[ix.options_json] ? JSON.parse(row[ix.options_json]) : []; } catch (e) { options = []; }
-    options = options.map(option => Object.assign({}, option, { label: thaiQuestionText_(option.label) }));
+    const options = parseQuestionOptions_(row[ix.options_json]).map(option => Object.assign({}, option, { label: thaiQuestionText_(option.label) }));
     return {
       id: String(row[ix.id]), round: round, section: thaiQuestionText_(row[ix.section]), type: normalizeQuestionType_(row[ix.type]),
       prompt: thaiQuestionText_(row[ix.prompt]), helper: thaiQuestionText_(row[ix.helper]), options: options,

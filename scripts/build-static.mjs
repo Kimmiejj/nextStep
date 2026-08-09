@@ -6,6 +6,19 @@ const root = path.resolve(import.meta.dirname, '..');
 const sourcePath = path.join(root, 'apps-script', 'Index.html');
 const codePath = path.join(root, 'apps-script', 'Code.gs');
 const outputPath = path.join(root, 'dist', 'index.html');
+const webAppUrl = String(process.env.APPS_SCRIPT_WEB_APP_URL || '').trim();
+
+if (webAppUrl) {
+  if (!webAppUrl.startsWith('https://script.google.com/macros/s/')) {
+    throw new Error('APPS_SCRIPT_WEB_APP_URL must be a deployed Google Apps Script web app URL.');
+  }
+  const redirectPath = path.join(root, 'public', 'index.template.html');
+  const redirectHtml = fs.readFileSync(redirectPath, 'utf8').replaceAll('__APPS_SCRIPT_WEB_APP_URL__', webAppUrl);
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  fs.writeFileSync(outputPath, redirectHtml, 'utf8');
+  console.log(`Built ${path.relative(root, outputPath)} as an Apps Script redirect.`);
+  process.exit(0);
+}
 
 function readSourceData() {
   const source = `${fs.readFileSync(codePath, 'utf8')}

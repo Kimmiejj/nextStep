@@ -31,6 +31,8 @@ jobs:
 
       - name: Build static app
         run: node scripts/build-static.mjs
+        env:
+          APPS_SCRIPT_WEB_APP_URL: https://script.google.com/macros/s/AKfycbxZ63hMYe7emCtcVmpWAm_PrD5SWDxFQlaEjKnYK9j0Pl_22SeUou_Uh6YywkYS5KgH1Q/exec
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

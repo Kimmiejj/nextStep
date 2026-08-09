@@ -160,6 +160,11 @@
     .empty { text-align:center; color:var(--muted); padding:34px; }
     .modal-backdrop { position:fixed; inset:0; display:grid; place-items:center; padding:18px; background:rgba(20,24,45,.48); z-index:50; }
     .modal { max-width:720px; width:100%; max-height:85vh; overflow:auto; background:#fff; border-radius:22px; padding:24px; box-shadow:0 30px 80px rgba(0,0,0,.25); }
+    .pdf-preview-modal { max-width:960px; max-height:92vh; padding:0; overflow:hidden; }
+    .pdf-preview-modal .modal-head { padding:20px 24px 16px; border-bottom:1px solid #edf0f4; }
+    .pdf-preview-body { max-height:calc(92vh - 142px); overflow:auto; padding:22px; background:#f7f9fc; }
+    .pdf-preview-content { max-width:none; margin:0; box-shadow:0 10px 28px rgba(44,62,80,.08); }
+    .pdf-preview-actions { display:flex; justify-content:flex-end; gap:10px; padding:16px 24px 20px; border-top:1px solid #edf0f4; background:#fff; }
     .modal-head { display:flex; justify-content:space-between; gap:12px; align-items:start; }
     .icon-button { width:36px;height:36px;border-radius:50%;background:#f0f2f7;color:#495166;font-weight:900; }
     .detail-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:18px 0; }
@@ -206,6 +211,12 @@
     .teacher-preview-topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
     .teacher-preview-page { max-width:none; padding:0; color:#202a35; background:transparent; font-family:"Noto Sans Thai", "Noto Sans", Arial, sans-serif; }
     .teacher-print-report { display:none; }
+    body.pdf-exporting > .app-shell { visibility:hidden !important; }
+    body.pdf-exporting > #toast { display:none !important; }
+    body.pdf-exporting .teacher-print-report { display:block !important; }
+    .student-pdf-export { display:block !important; width:794px !important; max-width:794px !important; margin:0 auto !important; background:#fff !important; }
+    .student-pdf-export .print-only { display:block !important; }
+    .student-pdf-export .no-print { display:none !important; }
     .teacher-print-page { max-width:920px; margin:0 auto; padding:28px 34px 38px; color:#202a35; background:#fff; font-family:"Noto Sans Thai", "Noto Sans", Arial, sans-serif; }
     .teacher-print-header { border-bottom:3px solid #1f4e79; padding-bottom:13px; }
     .teacher-print-kicker { color:#5e7183; font-size:11px; letter-spacing:.08em; text-transform:uppercase; }
@@ -528,7 +539,7 @@
           <div class="hero-copy"><span class="eyebrow">${escapeHtml(state.config.ACADEMIC_YEAR || 'TCAS70')}</span><h1>มาค้นหาทางของเรา<br><span style="color:var(--primary)">ไปมหาวิทยาลัย</span> แบบสบาย ๆ</h1><p>ตอบคำถามสั้น ๆ เหมือนคุยกับตัวเอง แล้วมาดูกันว่าเราถนัดอะไร อยากพัฒนาอะไร และรอบไหนน่าลองบ้าง</p></div>
           <div class="hero-art"><h2>${state.rounds.length} หัวข้อการวางแผน ✨</h2><div class="path">${state.rounds.map((r,i)=>`<div class="path-item"><div class="path-icon">${i+1}</div><div><strong>${escapeHtml(roundTitle(r,i).replace(/^รอบที่ \d+ /,''))}</strong><div style="opacity:.78;font-size:12px">${escapeHtml(r.subtitle)}</div></div></div>`).join('')}</div></div>
         </section>
-        <section class="card no-print"><div class="section-heading"><div><h2>เริ่มจากเล่าเรื่องของเรา 📝</h2><div class="muted small" style="margin-top:6px">ใช้เวลาประมาณ 5–8 นาที · ค่อย ๆ ตอบตามความรู้สึกได้เลย</div></div><span class="pill">ไม่มีคำตอบผิดนะ</span></div>
+        <section class="card no-print"><div class="section-heading"><div><h2>เริ่มจากเล่าเรื่องของเรา 📝</h2><div class="muted small" style="margin-top:6px">ใช้เวลาประมาณ 5–8 นาที · ค่อย ๆ ตอบตามความรู้สึกได้เลย</div></div></div>
           <div class="grid-form" id="profileForm">
             ${field('firstName','ชื่อจริง','เช่น พิมพ์ชนก','text',false)}
             ${field('lastName','นามสกุล','เช่น ใจดี','text',false)}
@@ -984,7 +995,7 @@
 
     function renderResult() {
       const result = state.result || { rounds:{}, answered:0, total:0 };
-      app().innerHTML = `<section id="report" class="card"><div class="print-only print-profile"><h1 class="print-profile-title">สรุปข้อมูลการเรียนรู้ TCAS</h1><div class="print-profile-grid"><div class="print-profile-item"><small>ชื่อ</small><strong>${escapeHtml(state.profile.firstName)}</strong></div><div class="print-profile-item"><small>นามสกุล</small><strong>${escapeHtml(state.profile.lastName)}</strong></div><div class="print-profile-item"><small>ชั้น</small><strong>${escapeHtml(state.profile.classLevel)}</strong></div><div class="print-profile-item"><small>ห้อง</small><strong>${escapeHtml(state.profile.room)}</strong></div><div class="print-profile-item"><small>เลขที่</small><strong>${escapeHtml(state.profile.number)}</strong></div></div></div><div class="guidance-hero"><div class="guidance-icon">📚</div><div><span class="eyebrow" style="background:#eaf5f4;color:#4e7d70;margin:0 0 10px">สรุปเพื่อการเรียนรู้</span><h2>รู้จักองค์ประกอบของแต่ละรอบ</h2><p>หน้านี้ไม่มีการให้คะแนน ระบบรวบรวมคำถามและคำตอบไว้ให้คุณทบทวนว่าแต่ละรอบควรเตรียมตัวเรื่องใดบ้าง</p></div></div><div class="result-grid">${state.rounds.map((r,roundIndex)=>{const data=result.rounds[r.id]||{answered:0,total:0,topics:[]};return `<div class="result-card"><div class="round-name">${escapeHtml(roundTitle(r,roundIndex))}</div><div class="result-card-topic">${escapeHtml((data.topics||[]).join(' · ')||'หัวข้อคำถามประจำรอบ')}</div><div class="muted small" style="margin-top:10px">ทบทวนแล้ว ${data.answered}/${data.total} ข้อ</div></div>`}).join('')}</div><section class="student-response-section"><h2 class="student-response-section-title">คำถามและคำตอบของฉัน แยกตามรอบ</h2><p class="student-response-section-note">กรอบแต่ละรอบช่วยให้เห็นว่ารอบนั้นเกี่ยวข้องกับเรื่องใดบ้าง</p>${state.rounds.map((r,roundIndex)=>{const data=result.rounds[r.id]||{answered:0,total:0};const roundQuestions=state.questions.filter(q=>q.round===r.id);return `<section class="student-response-round"><div class="student-response-round-head"><div><div class="student-response-round-title">${escapeHtml(roundTitle(r,roundIndex))}</div><div class="muted small" style="margin-top:4px">${escapeHtml(r.subtitle)}</div></div><div class="student-response-round-score">ทบทวนแล้ว ${data.answered}/${data.total}<small>ไม่มีการให้คะแนน</small></div></div>${roundQuestions.map((q,index)=>`<div class="student-response-question"><div class="student-response-question-label">คำถามที่ ${String(index+1).padStart(2,'0')}${q.section?' · '+escapeHtml(thaiSection(q.section)):''}</div><div class="student-response-question-prompt">${escapeHtml(q.prompt)}</div><div class="student-response-answer"><strong>คำตอบ:</strong> ${escapeHtml(answerForPrint(q,state.answers[q.id]))}</div></div>`).join('')}</section>`}).join('')}</section><div class="notice" style="margin-top:18px">ข้อมูลนี้จัดทำเพื่อช่วยให้ผู้เรียนเห็นองค์ประกอบและคำถามสำคัญของแต่ละรอบ TCAS ไม่ใช่การให้คะแนนหรือการรับรองผลคัดเลือก โปรดตรวจประกาศและคุณสมบัติของหลักสูตรจริงทุกครั้ง</div><div class="no-print" style="margin-top:20px"><h3>ก้าวต่อไปที่ลองทำได้ 🌱</h3><p class="muted" style="line-height:1.7">เลือกหัวข้อจากรอบที่สนใจ แล้วเปิดประกาศของมหาวิทยาลัยหรือคุยกับครูแนะแนวเพื่อดูรายละเอียดจริงเพิ่มเติม</p><div class="source-list">${state.sourceLinks.map(s=>`<a class="source-chip" href="${escapeAttr(s.url)}" target="_blank" rel="noopener">อ่าน ${escapeHtml(s.title)} ↗</a>`).join('')}</div></div><div class="actions no-print"><button class="secondary-button" onclick="renderHome()">ทำแบบประเมินใหม่</button><button class="primary-button" onclick="window.print()">ดาวน์โหลด / บันทึกเป็น PDF</button></div><div class="muted small no-print" style="margin-top:12px;text-align:right">รหัสการส่งข้อมูล: ${escapeHtml(result.submissionId||'-')}</div></section>`;
+      app().innerHTML = `<section id="report" class="card"><div class="print-only print-profile"><h1 class="print-profile-title">สรุปข้อมูลการเรียนรู้ TCAS</h1><div class="print-profile-grid"><div class="print-profile-item"><small>ชื่อ</small><strong>${escapeHtml(state.profile.firstName)}</strong></div><div class="print-profile-item"><small>นามสกุล</small><strong>${escapeHtml(state.profile.lastName)}</strong></div><div class="print-profile-item"><small>ชั้น</small><strong>${escapeHtml(state.profile.classLevel)}</strong></div><div class="print-profile-item"><small>ห้อง</small><strong>${escapeHtml(state.profile.room)}</strong></div><div class="print-profile-item"><small>เลขที่</small><strong>${escapeHtml(state.profile.number)}</strong></div></div></div><div class="guidance-hero"><div class="guidance-icon">📚</div><div><span class="eyebrow" style="background:#eaf5f4;color:#4e7d70;margin:0 0 10px">สรุปเพื่อการเรียนรู้</span><h2>รู้จักองค์ประกอบของแต่ละรอบ</h2><p>หน้านี้ไม่มีการให้คะแนน ระบบรวบรวมคำถามและคำตอบไว้ให้คุณทบทวนว่าแต่ละรอบควรเตรียมตัวเรื่องใดบ้าง</p></div></div><div class="result-grid">${state.rounds.map((r,roundIndex)=>{const data=result.rounds[r.id]||{answered:0,total:0,topics:[]};return `<div class="result-card"><div class="round-name">${escapeHtml(roundTitle(r,roundIndex))}</div><div class="result-card-topic">${escapeHtml((data.topics||[]).join(' · ')||'หัวข้อคำถามประจำรอบ')}</div><div class="muted small" style="margin-top:10px">ทบทวนแล้ว ${data.answered}/${data.total} ข้อ</div></div>`}).join('')}</div><section class="student-response-section"><h2 class="student-response-section-title">คำถามและคำตอบของฉัน แยกตามรอบ</h2><p class="student-response-section-note">กรอบแต่ละรอบช่วยให้เห็นว่ารอบนั้นเกี่ยวข้องกับเรื่องใดบ้าง</p>${state.rounds.map((r,roundIndex)=>{const data=result.rounds[r.id]||{answered:0,total:0};const roundQuestions=state.questions.filter(q=>q.round===r.id);return `<section class="student-response-round"><div class="student-response-round-head"><div><div class="student-response-round-title">${escapeHtml(roundTitle(r,roundIndex))}</div><div class="muted small" style="margin-top:4px">${escapeHtml(r.subtitle)}</div></div><div class="student-response-round-score">ทบทวนแล้ว ${data.answered}/${data.total}<small>ไม่มีการให้คะแนน</small></div></div>${roundQuestions.map((q,index)=>`<div class="student-response-question"><div class="student-response-question-label">คำถามที่ ${String(index+1).padStart(2,'0')}${q.section?' · '+escapeHtml(thaiSection(q.section)):''}</div><div class="student-response-question-prompt">${escapeHtml(q.prompt)}</div><div class="student-response-answer"><strong>คำตอบ:</strong> ${escapeHtml(answerForPrint(q,state.answers[q.id]))}</div></div>`).join('')}</section>`}).join('')}</section><div class="notice" style="margin-top:18px">ข้อมูลนี้จัดทำเพื่อช่วยให้ผู้เรียนเห็นองค์ประกอบและคำถามสำคัญของแต่ละรอบ TCAS ไม่ใช่การให้คะแนนหรือการรับรองผลคัดเลือก โปรดตรวจประกาศและคุณสมบัติของหลักสูตรจริงทุกครั้ง</div><div class="no-print" style="margin-top:20px"><h3>ก้าวต่อไปที่ลองทำได้ 🌱</h3><p class="muted" style="line-height:1.7">เลือกหัวข้อจากรอบที่สนใจ แล้วเปิดประกาศของมหาวิทยาลัยหรือคุยกับครูแนะแนวเพื่อดูรายละเอียดจริงเพิ่มเติม</p><div class="source-list">${state.sourceLinks.map(s=>`<a class="source-chip" href="${escapeAttr(s.url)}" target="_blank" rel="noopener">อ่าน ${escapeHtml(s.title)} ↗</a>`).join('')}</div></div><div class="actions no-print"><button class="secondary-button" onclick="renderHome()">ทำแบบประเมินใหม่</button><button class="primary-button" onclick="downloadStudentResultPdf()">ดาวน์โหลดไฟล์ PDF</button></div><div class="muted small no-print" style="margin-top:12px;text-align:right">รหัสการส่งข้อมูล: ${escapeHtml(result.submissionId||'-')}</div></section>`;
     }
 
     function roundTitle(round, index) {
@@ -1088,9 +1099,12 @@
       const answeredCount=questions=>questions.filter(q=>{const answer=answers[q.id];return answer!==undefined&&answer!==null&&answer!==''&&!(Array.isArray(answer)&&answer.length===0);}).length;
       document.getElementById('teacherPrintReport')?.remove();
       document.body.insertAdjacentHTML('beforeend',`<div id="teacherPrintReport" class="teacher-print-report"><article class="teacher-print-page"><header class="teacher-print-header"><div class="teacher-print-kicker">TCAS Compass · เอกสารประกอบการแนะแนว</div><h1 class="teacher-print-title">รายงานผลการประเมินความพร้อม TCAS</h1><div class="teacher-print-subtitle">รายงานรายบุคคล · วันที่ส่งแบบประเมิน ${escapeHtml(r.createdAt||'-')}</div></header><section class="teacher-print-profile"><div class="teacher-print-profile-item"><small>ชื่อ</small><strong>${escapeHtml(r.firstName)}</strong></div><div class="teacher-print-profile-item"><small>นามสกุล</small><strong>${escapeHtml(r.lastName)}</strong></div><div class="teacher-print-profile-item"><small>ชื่อเล่น</small><strong>${escapeHtml(r.nickname)}</strong></div><div class="teacher-print-profile-item"><small>ชั้น / ห้อง</small><strong>${escapeHtml(r.classLevel)} / ${escapeHtml(r.room)}</strong></div><div class="teacher-print-profile-item"><small>เลขที่</small><strong>${escapeHtml(r.number)}</strong></div></section><div class="teacher-print-target"><strong>เป้าหมายที่ระบุไว้:</strong> มหาวิทยาลัย ${escapeHtml(r.targetUniversity||'-')} · คณะ/สาขา ${escapeHtml(r.targetFaculty||'-')}</div><section class="teacher-print-summary"><div class="teacher-print-summary-item"><small>คะแนนภาพรวม</small><strong>${r.overallScore} / 100</strong></div>${state.rounds.map(round=>`<div class="teacher-print-summary-item"><small>${escapeHtml(round.title)}</small><strong>${roundScore(round)} / 100</strong></div>`).join('')}</section><section class="teacher-print-rounds">${state.rounds.map(round=>{const questions=roundQuestions(round);return `<section class="teacher-print-round"><div class="teacher-print-round-head"><div class="teacher-print-round-name">${escapeHtml(round.title)}</div><div class="teacher-print-round-score">${roundScore(round)} / 100<small>${escapeHtml(roundLevel(round))} · ตอบแล้ว ${answeredCount(questions)}/${questions.length} ข้อ</small></div></div>${questions.map((q,index)=>`<div class="teacher-print-question"><div class="teacher-print-question-label">คำถามที่ ${String(index+1).padStart(2,'0')}${q.section?' · '+escapeHtml(q.section):''}</div><div class="teacher-print-question-prompt">${escapeHtml(q.prompt)}</div><div class="teacher-print-answer-box"><strong>คำตอบ:</strong> ${escapeHtml(answerForPrint(q,answers[q.id]))}</div></div>`).join('')}</section>`}).join('')}</section><footer class="teacher-print-footer">เอกสารนี้จัดทำจากข้อมูลการตอบแบบประเมินเพื่อใช้ประกอบการแนะแนว ผลลัพธ์เป็นดัชนีความพร้อมเบื้องต้น ไม่ใช่การรับรองผลคัดเลือก ผู้เรียนควรตรวจประกาศและเกณฑ์ของมหาวิทยาลัย/หลักสูตรที่สนใจทุกครั้ง</footer></article></div>`);
-      document.body.classList.add('teacher-printing');
-      window.addEventListener('afterprint',clearTeacherPrint,{once:true});
-      setTimeout(()=>window.print(),80);
+      const report=document.getElementById('teacherPrintReport');
+      report.style.display='block';
+      report.style.width='794px';
+      report.style.maxWidth='794px';
+      report.style.margin='0 auto';
+      downloadPdfElement(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
     }
     function downloadStudentPdf(i){
       const r=state.responses[i];
@@ -1100,13 +1114,68 @@
       const answeredCount=questions=>questions.filter(q=>{const answer=answers[q.id];return answer!==undefined&&answer!==null&&answer!==''&&!(Array.isArray(answer)&&answer.length===0);}).length;
       document.getElementById('teacherPrintReport')?.remove();
       document.body.insertAdjacentHTML('beforeend',`<div id="teacherPrintReport" class="teacher-print-report"><article class="teacher-print-page"><header class="teacher-print-header"><div class="teacher-print-kicker">TCAS Compass · เอกสารประกอบการแนะแนว</div><h1 class="teacher-print-title">สรุปข้อมูลการเรียนรู้ TCAS</h1><div class="teacher-print-subtitle">รายงานรายบุคคล · วันที่ส่งข้อมูล ${escapeHtml(r.createdAt||'-')}</div></header><section class="teacher-print-profile"><div class="teacher-print-profile-item"><small>ชื่อ</small><strong>${escapeHtml(r.firstName)}</strong></div><div class="teacher-print-profile-item"><small>นามสกุล</small><strong>${escapeHtml(r.lastName)}</strong></div><div class="teacher-print-profile-item"><small>ชื่อเล่น</small><strong>${escapeHtml(r.nickname)}</strong></div><div class="teacher-print-profile-item"><small>ชั้น / ห้อง</small><strong>${escapeHtml(r.classLevel)} / ${escapeHtml(r.room)}</strong></div><div class="teacher-print-profile-item"><small>เลขที่</small><strong>${escapeHtml(r.number)}</strong></div></section><div class="teacher-print-target"><strong>เป้าหมายที่ระบุไว้:</strong> มหาวิทยาลัย ${escapeHtml(r.targetUniversity||'-')} · คณะ/สาขา ${escapeHtml(r.targetFaculty||'-')}</div><section class="teacher-print-summary"><div class="teacher-print-summary-item"><small>จำนวนคำตอบทั้งหมด</small><strong>${Object.keys(answers).length} รายการ</strong></div><div class="teacher-print-summary-item"><small>จำนวนรอบที่ทบทวน</small><strong>${state.rounds.length} รอบ</strong></div></section><section class="teacher-print-rounds">${state.rounds.map((round,roundIndex)=>{const questions=roundQuestions(round);return `<section class="teacher-print-round"><div class="teacher-print-round-head"><div><div class="teacher-print-round-name">${escapeHtml(roundTitle(round,roundIndex))}</div><div style="margin-top:3px;color:#607487;font-size:11px">${escapeHtml(round.subtitle)}</div></div><div class="teacher-print-round-score">ทบทวนแล้ว ${answeredCount(questions)}/${questions.length}<small>ไม่มีการให้คะแนน</small></div></div>${questions.map((q,index)=>`<div class="teacher-print-question"><div class="teacher-print-question-label">คำถามที่ ${String(index+1).padStart(2,'0')}${q.section?' · '+escapeHtml(thaiSection(q.section)):''}</div><div class="teacher-print-question-prompt">${escapeHtml(q.prompt)}</div><div class="teacher-print-answer-box"><strong>คำตอบ:</strong> ${escapeHtml(answerForPrint(q,answers[q.id]))}</div></div>`).join('')}</section>`}).join('')}</section><footer class="teacher-print-footer">เอกสารนี้จัดทำเพื่อสรุปคำถามและคำตอบสำหรับใช้ประกอบการเรียนรู้และการแนะแนว ไม่มีการให้คะแนนหรือรับรองผลคัดเลือก ผู้เรียนควรตรวจประกาศและคุณสมบัติของหลักสูตรจริงทุกครั้ง</footer></article></div>`);
-      document.body.classList.add('teacher-printing');
-      window.addEventListener('afterprint',clearTeacherPrint,{once:true});
-      setTimeout(()=>window.print(),80);
+      const report=document.getElementById('teacherPrintReport');
+      report.style.display='block';
+      report.style.width='794px';
+      report.style.maxWidth='794px';
+      report.style.margin='0 auto';
+      downloadPdfElement(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
     }
-    function clearTeacherPrint(){ document.body.classList.remove('teacher-printing'); document.getElementById('teacherPrintReport')?.remove(); }
+    function loadHtml2Pdf(){
+      if(window.html2pdf) return Promise.resolve(window.html2pdf);
+      return new Promise((resolve,reject)=>{
+        const existing=document.querySelector('script[data-html2pdf]');
+        if(existing){ existing.addEventListener('load',()=>resolve(window.html2pdf),{once:true}); existing.addEventListener('error',()=>reject(new Error('โหลดตัวสร้าง PDF ไม่สำเร็จ')),{once:true}); return; }
+        const script=document.createElement('script');
+        script.dataset.html2pdf='true';
+        script.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        script.onload=()=>window.html2pdf?resolve(window.html2pdf):reject(new Error('ไม่พบตัวสร้าง PDF'));
+        script.onerror=()=>reject(new Error('โหลดตัวสร้าง PDF ไม่สำเร็จ'));
+        document.head.appendChild(script);
+      });
+    }
+    async function downloadPdfElement(element,filename){
+      if(!element) throw new Error('ไม่พบเนื้อหาสำหรับสร้าง PDF');
+      const html2pdf=await loadHtml2Pdf();
+      document.body.classList.add('pdf-exporting');
+      try{
+        await html2pdf().set({
+          margin:[8,8,8,8],
+          filename:filename,
+          image:{type:'jpeg',quality:.96},
+          html2canvas:{scale:2,useCORS:true,backgroundColor:'#fff',scrollX:0,scrollY:0,windowWidth:794},
+          jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},
+          pagebreak:{mode:['css','legacy'],avoid:['.teacher-print-question','.student-response-question']}
+        }).from(element).save();
+        notify('ดาวน์โหลดไฟล์ PDF เรียบร้อยแล้ว');
+      }finally{
+        document.body.classList.remove('pdf-exporting');
+      }
+    }
+    function downloadStudentResultPdf(){
+      const source=document.getElementById('report');
+      if(!source) return notify('ไม่พบรายงานสำหรับดาวน์โหลด');
+      const preview=source.cloneNode(true);
+      preview.id='studentPdfPreviewContent';
+      preview.classList.add('pdf-preview-content');
+      preview.querySelectorAll('.no-print,.print-only').forEach(element=>element.remove());
+      document.body.insertAdjacentHTML('beforeend',`<div class="modal-backdrop" id="studentPdfPreviewModal" onclick="closeModal(event)"><div class="modal pdf-preview-modal" onclick="event.stopPropagation()"><div class="modal-head"><div><span class="eyebrow" style="margin:0 0 8px">ตรวจสอบเอกสาร</span><h2 style="margin:0">ตัวอย่างสรุปข้อมูลการเรียนรู้</h2><div class="muted small" style="margin-top:5px">ตรวจสอบเนื้อหาก่อนกดดาวน์โหลดไฟล์ PDF</div></div><button class="icon-button" onclick="closeModal()" aria-label="ปิดหน้าต่าง">×</button></div><div class="pdf-preview-body" id="studentPdfPreviewBody"></div><div class="pdf-preview-actions"><button class="secondary-button" onclick="closeModal()">ปิด</button><button class="primary-button" onclick="downloadStudentResultPdfFile()">ดาวน์โหลดไฟล์ PDF</button></div></div></div>`);
+      document.getElementById('studentPdfPreviewBody').appendChild(preview);
+    }
+    async function downloadStudentResultPdfFile(){
+      const source=document.getElementById('studentPdfPreviewContent');
+      if(!source) return notify('ไม่พบรายงานสำหรับดาวน์โหลด');
+      const clone=source.cloneNode(true);
+      clone.id='studentPdfExport';
+      clone.classList.add('student-pdf-export');
+      document.body.appendChild(clone);
+      try{ await downloadPdfElement(clone,'tcas-compass-learning-summary.pdf'); }
+      catch(error){ showError(error); }
+      finally{ clone.remove(); }
+    }
+    function clearTeacherPrint(){ document.body.classList.remove('teacher-printing','pdf-exporting'); document.getElementById('teacherPrintReport')?.remove(); }
     function detail(label,value){return `<div class="detail-item"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`;}
-    function closeModal(event){if(!event||event.target.id==='detailModal')document.getElementById('detailModal')?.remove();}
+    function closeModal(event){if(!event||['detailModal','studentPdfPreviewModal'].includes(event.target.id)){document.getElementById('detailModal')?.remove();document.getElementById('studentPdfPreviewModal')?.remove();}}
     function topRound(rows){if(!rows.length)return'-';const scores=['r1Score','r2Score','r3Score','r4Score'].map(k=>rows.reduce((a,r)=>a+r[k],0)/rows.length);const idx=scores.indexOf(Math.max(...scores));return 'รอบที่ '+(idx+1);}
     function switchToStudentMode(){ if (state.teacherToken) google.script.run.teacherLogout(state.teacherToken); state.teacherToken=''; state.teacherName=''; state.responses=[]; renderHome(); window.scrollTo({top:0,behavior:'smooth'}); }
     function logoutTeacher(){ switchToStudentMode(); }
