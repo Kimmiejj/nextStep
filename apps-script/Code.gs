@@ -76,10 +76,46 @@ const DEFAULT_QUESTIONS = [
   ['R4_04', 'R4', 'ทบทวนตัวเอง', 'textarea', 'เขียนสั้น ๆ: ถ้ารอบ 4 เปิดรับพรุ่งนี้ คุณจะต้องทำอะไรเป็นอย่างแรก', '', '[]', 'FALSE', '0', 'max', '0', 'TRUE', 'https://school.mytcas.com/']
 ];
 
-function doGet() {
+function doGet(e) {
+  const params = e && e.parameter ? e.parameter : {};
+  if (params.api) return handleApiGet_(params);
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle(getConfig_().APP_NAME || 'TCAS Compass')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function doPost(e) {
+  let request = {};
+  try { request = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (error) {}
+  if (request.action === 'submitResponse') {
+    return jsonOutput_({ ok: true, data: submitResponse(request.payload || {}) });
+  }
+  return jsonOutput_({ ok: false, error: 'ไม่พบ action ที่รองรับ' });
+}
+
+function handleApiGet_(params) {
+  const callback = params.callback || '';
+  try {
+    let data;
+    if (params.api === 'getAppData') data = getAppData();
+    else if (params.api === 'teacherLogin') data = teacherLoginHash_(params.username, params.passwordHash);
+    else if (params.api === 'teacherLogout') data = teacherLogout(params.token);
+    else if (params.api === 'listResponses') data = listResponses(params.token, { query: params.query, classLevel: params.classLevel, room: params.room });
+    else if (params.api === 'exportResponsesCsv') data = exportResponsesCsv(params.token, { query: params.query, classLevel: params.classLevel, room: params.room });
+    else throw new Error('ไม่พบ API ที่ร้องขอ');
+    return jsonpOutput_(callback, { ok: true, data: data });
+  } catch (error) {
+    return jsonpOutput_(callback, { ok: false, error: String(error && error.message || error) });
+  }
+}
+
+function jsonOutput_(value) {
+  return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsonpOutput_(callback, value) {
+  if (!/^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(String(callback || ''))) return jsonOutput_(value);
+  return ContentService.createTextOutput(String(callback) + '(' + JSON.stringify(value) + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 
 function parseQuestionOptions_(value) {
@@ -215,13 +251,17 @@ function buildLearningSummary_(questions, answers) {
 }
 
 function teacherLogin(username, password) {
+  return teacherLoginHash_(username, hashPassword_(String(password || '')));
+}
+
+function teacherLoginHash_(username, passwordHash) {
   const normalized = String(username || '').trim().toLowerCase();
   const rows = getSheet_(APP.sheets.users).getDataRange().getValues();
   if (rows.length < 2) throw new Error('ยังไม่มีบัญชีครูในแท็บ Users');
   const headers = rows.shift();
   const ix = headerIndex_(headers);
   const match = rows.find(row => String(row[ix.username] || '').trim().toLowerCase() === normalized && String(row[ix.active] || '').toUpperCase() === 'TRUE');
-  if (!match || String(match[ix.password_hash]) !== hashPassword_(String(password || ''))) throw new Error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+  if (!match || String(match[ix.password_hash]) !== String(passwordHash || '')) throw new Error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
   const token = Utilities.getUuid();
   const ttl = Math.max(300, Number(getConfig_().TEACHER_SESSION_MINUTES || 60) * 60);
   CacheService.getScriptCache().put('teacher_' + token, normalized, ttl);

@@ -8,16 +8,8 @@ const codePath = path.join(root, 'apps-script', 'Code.gs');
 const outputPath = path.join(root, 'dist', 'index.html');
 const webAppUrl = String(process.env.APPS_SCRIPT_WEB_APP_URL || '').trim();
 
-if (webAppUrl) {
-  if (!webAppUrl.startsWith('https://script.google.com/macros/s/')) {
-    throw new Error('APPS_SCRIPT_WEB_APP_URL must be a deployed Google Apps Script web app URL.');
-  }
-  const redirectPath = path.join(root, 'public', 'index.template.html');
-  const redirectHtml = fs.readFileSync(redirectPath, 'utf8').replaceAll('__APPS_SCRIPT_WEB_APP_URL__', webAppUrl);
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, redirectHtml, 'utf8');
-  console.log(`Built ${path.relative(root, outputPath)} as an Apps Script redirect.`);
-  process.exit(0);
+if (webAppUrl && !webAppUrl.startsWith('https://script.google.com/macros/s/')) {
+  throw new Error('APPS_SCRIPT_WEB_APP_URL must be a deployed Google Apps Script web app URL.');
 }
 
 function readSourceData() {
@@ -57,9 +49,10 @@ function createStaticData() {
   return { config, rounds: APP.rounds, questions, sourceLinks };
 }
 
-function createStaticRuntime(data) {
+function createStaticRuntime(data, apiUrl) {
   return `
     let STATIC_DATA = ${JSON.stringify(data)};
+    const LIVE_BACKEND_URL = ${JSON.stringify(apiUrl || '')};
     const LIVE_QUESTIONS_URL = 'https://docs.google.com/spreadsheets/d/1Rnp1zuFBUHLGutWh1h1kVzN1bAfOTVUw36Phj4vYLmQ/export?format=csv&gid=1155617573';
     const STATIC_STORAGE_KEY = 'nextStep.responses';
     const STATIC_TEACHER_USERNAME = 'teacher';
@@ -138,6 +131,33 @@ function createStaticRuntime(data) {
       const responses = readStaticResponses();
       responses.unshift(result);
       localStorage.setItem(STATIC_STORAGE_KEY, JSON.stringify(responses.slice(0, 100)));
+    }
+    function requestBackendJsonp(params) {
+      if (!LIVE_BACKEND_URL) return Promise.reject(new Error('ยังไม่ได้ตั้งค่า backend ของ Responses'));
+      return new Promise((resolve, reject) => {
+        const callbackName = '__nextStepJsonp_' + Date.now().toString(36) + Math.random().toString(36).slice(2);
+        const script = document.createElement('script');
+        const query = new URLSearchParams(Object.assign({}, params, {callback: callbackName}));
+        const cleanup = () => { delete window[callbackName]; script.remove(); };
+        const timer = setTimeout(() => { cleanup(); reject(new Error('backend ไม่ตอบกลับภายในเวลาที่กำหนด')); }, 15000);
+        window[callbackName] = response => {
+          clearTimeout(timer);
+          cleanup();
+          if (!response || response.ok === false) reject(new Error(response?.error || 'backend ตอบกลับไม่สำเร็จ'));
+          else resolve(response.data);
+        };
+        script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('เชื่อมต่อ backend ไม่สำเร็จ')); };
+        script.src = LIVE_BACKEND_URL + '?' + query.toString();
+        document.head.appendChild(script);
+      });
+    }
+    function persistBackendResponse(payload) {
+      if (!LIVE_BACKEND_URL) return Promise.resolve();
+      return fetch(LIVE_BACKEND_URL, {
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'text/plain;charset=UTF-8'},
+        body:JSON.stringify({action:'submitResponse',payload})
+      }).then(() => undefined);
     }
     function normalizeStaticResponse(result) {
       const profile = result?.profile || {};
@@ -218,8 +238,26 @@ function createStaticRuntime(data) {
         failure: null,
         withSuccessHandler(handler) { this.success = handler; return this; },
         withFailureHandler(handler) { this.failure = handler; return this; },
-        getAppData() { const backend = this; loadLiveQuestions().then(data => backend.success?.(data)); return this; },
-        submitResponse(payload) { const result = buildStaticResult(payload); writeStaticResponse(result); this.success?.(result); return this; },
+        getAppData() {
+          const backend = this;
+          const request = LIVE_BACKEND_URL ? requestBackendJsonp({api:'getAppData'}) : loadLiveQuestions();
+          request.then(data => { if (data?.questions) STATIC_DATA = data; backend.success?.(data); }).catch(error => {
+            if (LIVE_BACKEND_URL) console.warn('ใช้ข้อมูลสำรองเพราะโหลด backend ไม่สำเร็จ', error);
+            backend.success?.(STATIC_DATA);
+          });
+          return this;
+        },
+        submitResponse(payload) {
+          const backend = this;
+          const result = buildStaticResult(payload);
+          if (!LIVE_BACKEND_URL) { writeStaticResponse(result); backend.success?.(result); return this; }
+          persistBackendResponse(payload).then(() => {
+            result.submissionId = 'github-' + Date.now().toString(36);
+            result.backendSaved = true;
+            backend.success?.(result);
+          }).catch(error => backend.failure?.(error));
+          return this;
+        },
         teacherLogout() { return this; },
         teacherLogin() { this.failure?.(new Error('โหมดครูไม่เปิดใช้งานในเว็บไซต์แบบ static')); return this; },
         listResponses() { this.success?.(readStaticResponses()); return this; },
@@ -227,6 +265,14 @@ function createStaticRuntime(data) {
       }
     };
     staticBackend.run.teacherLogin = async function(username, password) {
+      if (LIVE_BACKEND_URL) {
+        const backend = this;
+        try {
+          const passwordHash = await hashStaticPassword(password);
+          requestBackendJsonp({api:'teacherLogin',username:String(username || '').trim(),passwordHash}).then(result => backend.success?.(result)).catch(error => backend.failure?.(error));
+        } catch (error) { backend.failure?.(error); }
+        return this;
+      }
       let passwordHash = '';
       try { passwordHash = await hashStaticPassword(password); } catch (error) {}
       if (String(username || '').trim().toLowerCase() !== STATIC_TEACHER_USERNAME || passwordHash !== STATIC_TEACHER_PASSWORD_HASH) {
@@ -237,10 +283,20 @@ function createStaticRuntime(data) {
       return this;
     };
     staticBackend.run.listResponses = function(token, filters) {
+      if (LIVE_BACKEND_URL) {
+        const backend = this;
+        requestBackendJsonp({api:'listResponses',token,query:filters?.query || '',classLevel:filters?.classLevel || '',room:filters?.room || ''}).then(rows => backend.success?.(rows)).catch(error => backend.failure?.(error));
+        return this;
+      }
       this.success?.(filterStaticResponses(readStaticResponses(), filters));
       return this;
     };
     staticBackend.run.exportResponsesCsv = function(token, filters) {
+      if (LIVE_BACKEND_URL) {
+        const backend = this;
+        requestBackendJsonp({api:'exportResponsesCsv',token,query:filters?.query || '',classLevel:filters?.classLevel || '',room:filters?.room || ''}).then(csv => backend.success?.(csv)).catch(error => backend.failure?.(error));
+        return this;
+      }
       this.success?.(staticResponsesCsv(filterStaticResponses(readStaticResponses(), filters)));
       return this;
     };
@@ -249,7 +305,7 @@ function createStaticRuntime(data) {
 
 const template = fs.readFileSync(sourcePath, 'utf8');
 const data = createStaticData();
-const runtime = createStaticRuntime(data);
+const runtime = createStaticRuntime(data, webAppUrl);
 let output = template
   .replace('<base target="_top">', '<base target="_self">')
   .replaceAll('google.script', 'staticBackend')
