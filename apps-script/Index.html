@@ -1109,7 +1109,7 @@
       report.style.width='794px';
       report.style.maxWidth='794px';
       report.style.margin='0 auto';
-      downloadPdfElementByPages(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
+      downloadPdfElementAsBlocks(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
     }
     function downloadStudentPdf(i){
       const r=state.responses[i];
@@ -1124,7 +1124,7 @@
       report.style.width='794px';
       report.style.maxWidth='794px';
       report.style.margin='0 auto';
-      downloadPdfElementByPages(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
+      downloadPdfElementAsBlocks(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
     }
     function loadHtml2Pdf(){
       if(window.html2pdf) return Promise.resolve(window.html2pdf);
@@ -1271,6 +1271,136 @@
         document.body.classList.remove('pdf-exporting');
       }
     }
+    async function downloadPdfElementAsBlocks(element,filename){
+      if(!element) throw new Error('ไม่พบเนื้อหาสำหรับสร้าง PDF');
+      const {html2canvas,jsPDF}=await loadPdfRenderer_();
+      document.body.classList.add('pdf-exporting');
+      let renderRoot;
+      try{
+        const isTeacher=Boolean(element.querySelector('.teacher-print-page'));
+        const sourceRoot=isTeacher?element.querySelector('.teacher-print-page'):element;
+        const roundSelector=isTeacher?'.teacher-print-round':'.student-response-round';
+        const questionSelector=isTeacher?'.teacher-print-question':'.student-response-question';
+        const roundHeadSelector=isTeacher?'.teacher-print-round-head':'.student-response-round-head';
+        const introNodes=[];
+        let footerNode=null;
+        Array.from(sourceRoot.children).forEach(child=>{
+          if(isTeacher&&child.matches('.teacher-print-rounds')) return;
+          if(isTeacher&&child.matches('.teacher-print-footer')){ footerNode=child; return; }
+          if(!isTeacher&&child.matches('.student-response-section')){
+            const section=child.cloneNode(true);
+            section.querySelectorAll(roundSelector).forEach(node=>node.remove());
+            introNodes.push(section);
+            return;
+          }
+          introNodes.push(child.cloneNode(true));
+        });
+        const rounds=Array.from(element.querySelectorAll(roundSelector));
+        const pageLimit=Math.floor(794*270/194);
+        renderRoot=document.createElement('div');
+        renderRoot.dataset.pdfRenderRoot='true';
+        renderRoot.style.cssText='position:absolute!important;top:0!important;left:0!important;width:794px!important;visibility:hidden!important;display:block!important;z-index:-1!important;';
+        document.body.appendChild(renderRoot);
+        const cleanClone=node=>{
+          const clone=node.cloneNode(true);
+          clone.removeAttribute('id');
+          clone.querySelectorAll('[id]').forEach(item=>item.removeAttribute('id'));
+          return clone;
+        };
+        const createPage=includeIntro=>{
+          const page=sourceRoot.cloneNode(false);
+          page.removeAttribute('id');
+          page.dataset.pdfPage=String(renderRoot.children.length+1);
+          page.style.setProperty('position','absolute','important');
+          page.style.setProperty('top','0','important');
+          page.style.setProperty('left','0','important');
+          page.style.setProperty('width','794px','important');
+          page.style.setProperty('max-width','794px','important');
+          page.style.setProperty('margin','0','important');
+          page.style.setProperty('display','block','important');
+          page.style.setProperty('visibility','visible','important');
+          page.style.setProperty('opacity','1','important');
+          if(includeIntro) introNodes.forEach(node=>page.appendChild(cleanClone(node)));
+          renderRoot.appendChild(page);
+          return page;
+        };
+        const createRound=round=>{
+          const block=round.cloneNode(false);
+          block.removeAttribute('id');
+          block.innerHTML='';
+          const head=round.querySelector(roundHeadSelector);
+          if(head) block.appendChild(cleanClone(head));
+          return block;
+        };
+        let page=createPage(true);
+        let roundBlock=null;
+        rounds.forEach(round=>{
+          roundBlock=null;
+          Array.from(round.querySelectorAll(questionSelector)).forEach(question=>{
+            if(!roundBlock){ roundBlock=createRound(round); page.appendChild(roundBlock); }
+            const questionClone=cleanClone(question);
+            roundBlock.appendChild(questionClone);
+            if(page.getBoundingClientRect().height>pageLimit&&roundBlock.querySelectorAll(questionSelector).length>1){
+              roundBlock.removeChild(questionClone);
+              page=createPage(false);
+              roundBlock=createRound(round);
+              page.appendChild(roundBlock);
+              roundBlock.appendChild(questionClone);
+            } else if(page.getBoundingClientRect().height>pageLimit&&roundBlock.querySelectorAll(questionSelector).length===1&&page.children.length>1){
+              roundBlock.remove();
+              page=createPage(false);
+              roundBlock=createRound(round);
+              page.appendChild(roundBlock);
+              roundBlock.appendChild(questionClone);
+            }
+          });
+        });
+        if(footerNode){
+          const footer=cleanClone(footerNode);
+          page.appendChild(footer);
+          if(page.getBoundingClientRect().height>pageLimit&&page.children.length>1){
+            page.removeChild(footer);
+            page=createPage(false);
+            page.appendChild(footer);
+          }
+        }
+        const pdf=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+        renderRoot.style.setProperty('visibility','visible','important');
+        for(let index=0;index<renderRoot.children.length;index+=1){
+          const pageNode=renderRoot.children[index];
+          if(index) pdf.addPage();
+          const canvas=await html2canvas(pageNode,{scale:1.5,useCORS:false,allowTaint:false,backgroundColor:'#fff',scrollX:0,scrollY:0,windowWidth:794,width:794,onclone:clonedDocument=>{
+            clonedDocument.body.style.setProperty('margin','0','important');
+            clonedDocument.body.style.setProperty('padding','0','important');
+            clonedDocument.querySelectorAll('.app-shell').forEach(node=>node.style.setProperty('display','none','important'));
+            const clonedRoot=clonedDocument.querySelector('[data-pdf-render-root]');
+            if(clonedRoot){
+              clonedRoot.style.setProperty('position','static','important');
+              clonedRoot.style.setProperty('visibility','visible','important');
+              clonedRoot.style.setProperty('display','block','important');
+            }
+            const clonedPage=clonedDocument.querySelector(`[data-pdf-page="${index+1}"]`);
+            if(clonedPage){
+              clonedPage.style.setProperty('position','static','important');
+              clonedPage.style.setProperty('top','auto','important');
+              clonedPage.style.setProperty('left','auto','important');
+              clonedPage.style.setProperty('visibility','visible','important');
+            }
+          }});
+          const imageWidth=194;
+          const imageHeight=Math.min(270,imageWidth*canvas.height/canvas.width);
+          pdf.addImage(canvas.toDataURL('image/jpeg',.96),'JPEG',8,8,imageWidth,imageHeight,undefined,'FAST');
+          pdf.setFontSize(8);
+          pdf.setTextColor(126,140,151);
+          pdf.text(`TCAS Compass - Page ${index+1}`,202,289,{align:'right'});
+        }
+        pdf.save(filename);
+        notify('ดาวน์โหลดไฟล์ PDF เรียบร้อยแล้ว');
+      }finally{
+        renderRoot?.remove();
+        document.body.classList.remove('pdf-exporting');
+      }
+    }
     function downloadStudentResultPdf(){
       const submissionId=String(state.result?.submissionId||'');
       if(submissionId&&!submissionId.startsWith('local-')){
@@ -1308,7 +1438,7 @@
       clone.id='studentPdfExport';
       clone.classList.add('student-pdf-export');
       document.body.appendChild(clone);
-      try{ await downloadPdfElementByPages(clone,'tcas-compass-learning-summary.pdf'); }
+      try{ await downloadPdfElementAsBlocks(clone,'tcas-compass-learning-summary.pdf'); }
       catch(error){ showError(error); }
       finally{ clone.remove(); }
     }
