@@ -1109,7 +1109,7 @@
       report.style.width='794px';
       report.style.maxWidth='794px';
       report.style.margin='0 auto';
-      downloadPdfElementAsBlocks(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
+      downloadPdfElementAsBlocks(report,pdfFileName_(r)).catch(showError).finally(()=>report.remove());
     }
     function legacyDownloadStudentPdf_(i){
       const r=state.responses[i];
@@ -1124,7 +1124,7 @@
       report.style.width='794px';
       report.style.maxWidth='794px';
       report.style.margin='0 auto';
-      downloadPdfElementAsBlocks(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
+      downloadPdfElementAsBlocks(report,pdfFileName_(r)).catch(showError).finally(()=>report.remove());
     }
     function buildUnifiedPdfReport_(profile,answers,createdAt){
       const safeProfile=profile||{};
@@ -1142,6 +1142,21 @@
       report.style.margin='0 auto';
       return report;
     }
+    function pdfFileName_(profile){
+      const safe=profile||{};
+      const parts=[
+        'สรุปการเรียนรู้',
+        safe.firstName,
+        safe.lastName,
+        safe.classLevel?`ชั้น${safe.classLevel}`:'',
+        safe.room?`ห้อง${safe.room}`:'',
+        safe.number?`เลขที่${safe.number}`:''
+      ].filter(Boolean).map(sanitizePdfFilePart_).filter(Boolean);
+      return `${(parts.join('_')||'สรุปการเรียนรู้')}.pdf`;
+    }
+    function sanitizePdfFilePart_(value){
+      return String(value||'').normalize('NFKC').replace(/[<>:"/\\|?*\u0000-\u001F]/g,'-').replace(/\s+/g,' ').trim().replace(/[. ]+$/g,'').slice(0,80);
+    }
     function downloadStudentPdf(i){
       const r=state.responses[i];
       if(!r) return notify('ไม่พบข้อมูลนักเรียนสำหรับสร้างรายงาน');
@@ -1149,7 +1164,7 @@
       document.getElementById('teacherPrintReport')?.remove();
       const report=buildUnifiedPdfReport_(r,answers,r.createdAt);
       document.body.appendChild(report);
-      downloadPdfElementAsBlocks(report,'tcas-compass-student-report.pdf').catch(showError).finally(()=>report.remove());
+      downloadPdfElementAsBlocks(report,pdfFileName_(r)).catch(showError).finally(()=>report.remove());
     }
     function loadHtml2Pdf(){
       if(window.html2pdf) return Promise.resolve(window.html2pdf);
@@ -1470,7 +1485,7 @@
       clone.id='studentPdfExport';
       clone.classList.add('student-pdf-export');
       document.body.appendChild(clone);
-      try{ await downloadPdfElementAsBlocks(clone,'tcas-compass-learning-summary.pdf'); }
+      try{ await downloadPdfElementAsBlocks(clone,pdfFileName_(state.profile)); }
       catch(error){ showError(error); }
       finally{ clone.remove(); }
     }
