@@ -1355,8 +1355,9 @@
       link.rel='noopener';
       link.textContent='เปิดไฟล์ PDF';
       container.append(text,link);
-      const host=document.querySelector('#studentPdfPreviewModal .pdf-preview-actions') || document.querySelector('.teacher-print-actions') || document.body;
-      host.appendChild(container);
+      const host=document.querySelector('#studentPdfPreviewBody') || document.querySelector('.teacher-print-actions') || document.body;
+      host.prepend(container);
+      container.scrollIntoView({behavior:'smooth',block:'nearest'});
       window.setTimeout(()=>URL.revokeObjectURL(url),300000);
     }
     async function downloadPdfElementAsBlocks(element,filename){
@@ -1520,7 +1521,8 @@
       const submissionId=String(state.result?.submissionId||'');
       if(submissionId&&!submissionId.startsWith('local-')){
         notify('บันทึกข้อมูลในชีต Responses แล้ว');
-        return openStudentPdfPreview_();
+        openStudentPdfPreview_();
+        return downloadStudentResultPdfFile();
       }
       if(state.pdfSaveInFlight) return notify('กำลังบันทึกข้อมูล กรุณารอสักครู่');
       state.pdfSaveInFlight=true;
@@ -1531,6 +1533,7 @@
         renderResult();
         notify('บันทึกข้อมูลในชีต Responses แล้ว');
         openStudentPdfPreview_();
+        downloadStudentResultPdfFile();
       }).withFailureHandler(error=>{
         state.pdfSaveInFlight=false;
         showError(error);
