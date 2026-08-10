@@ -1,12 +1,26 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
+import { execFileSync } from 'node:child_process';
 
 const root = path.resolve(import.meta.dirname, '..');
 const sourcePath = path.join(root, 'apps-script', 'Index.html');
 const codePath = path.join(root, 'apps-script', 'Code.gs');
 const outputPath = path.join(root, 'dist', 'index.html');
 const webAppUrl = String(process.env.APPS_SCRIPT_WEB_APP_URL || '').trim();
+
+function readGitValue(args) {
+  try {
+    return execFileSync('git', args, { cwd:root, encoding:'utf8' }).trim();
+  } catch (error) {
+    return '';
+  }
+}
+
+const commitCount = readGitValue(['rev-list', '--count', 'HEAD']);
+const shortSha = readGitValue(['rev-parse', '--short=7', 'HEAD']);
+const appVersion = String(process.env.APP_VERSION || '').trim()
+  || (commitCount && shortSha ? `v1.0.${commitCount}-${shortSha}` : 'v1.0.0-dev');
 
 if (webAppUrl && !webAppUrl.startsWith('https://script.google.com/macros/s/')) {
   throw new Error('APPS_SCRIPT_WEB_APP_URL must be a deployed Google Apps Script web app URL.');
@@ -313,9 +327,10 @@ const data = createStaticData();
 const runtime = createStaticRuntime(data, webAppUrl);
 let output = template
   .replace('<base target="_top">', '<base target="_self">')
+  .replaceAll('__APP_VERSION__', appVersion)
   .replaceAll('google.script', 'staticBackend')
   .replace('    const state = {', `${runtime}\n    const state = {`);
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, output, 'utf8');
-console.log(`Built ${path.relative(root, outputPath)} with ${data.questions.length} questions.`);
+console.log(`Built ${path.relative(root, outputPath)} ${appVersion} with ${data.questions.length} questions.`);

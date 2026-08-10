@@ -8,6 +8,7 @@ TCAS Compass is a responsive, static student assessment website for mobile, iPad
 - `apps-script/Code.gs` supplies bundled fallback data and saves submitted responses to the `Responses` sheet.
 - `scripts/build-static.mjs` creates `dist/index.html` with browser-side logic and a live Apps Script response backend.
 - `.github/workflows/deploy-pages.yml` builds and deploys the static site to GitHub Pages.
+- The visible build version is generated from Git history as `v1.0.<commit-count>-<short-sha>`, so every pushed commit gets a distinct version in both student and teacher modes and in generated PDF reports.
 
 The deployed site is served from GitHub Pages. It reads the public `Questions` tab directly for live question updates and sends submitted answers to the `Responses` sheet. PDF reports are generated on demand in the browser as an in-memory blob; no PDF is uploaded to Apps Script, Google Drive, or any other server.
 
