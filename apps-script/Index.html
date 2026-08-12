@@ -174,7 +174,12 @@
     .stat-label { color:var(--muted); font-size:13px; }
     .stat-value { font-size:28px; font-weight:900; margin-top:7px; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:16px; background:#fff; }
-    .teacher-pagination { display:flex; align-items:center; justify-content:center; gap:12px; margin-top:16px; }
+    .teacher-pagination { display:flex; flex-direction:column; align-items:center; gap:10px; margin-top:16px; }
+    .teacher-pagination-controls { display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; }
+    .teacher-pagination-pages { display:flex; align-items:center; gap:6px; }
+    .teacher-pagination .page-button { min-width:40px; padding:0 12px; }
+    .teacher-pagination .page-button.is-current { color:#fff; background:#78a7df; box-shadow:0 4px 0 #5f8fc7; }
+    .teacher-pagination-ellipsis { min-width:20px; color:var(--muted); text-align:center; }
     .teacher-pagination-status { min-width:150px; color:var(--muted); font-size:13px; text-align:center; }
     .teacher-pagination button:disabled { cursor:not-allowed; opacity:.5; }
     table { width:100%; border-collapse:collapse; min-width:920px; }
@@ -1158,29 +1163,45 @@
     }
 
      function renderDashboard(){ renderDashboardContent(); applyTeacherPagination(); }
-     function applyTeacherPagination(){
-       const tableWrap=document.querySelector('.table-wrap');
-       const table=tableWrap?.querySelector('table');
-       if(!table) return;
-       tableWrap.querySelector('[data-teacher-pagination]')?.remove();
-       const rows=Array.from(table.tBodies?.[0]?.rows||[]);
-       const totalPages=Math.max(1,Math.ceil(rows.length/TEACHER_PAGE_SIZE));
+      function applyTeacherPagination(){
+        const tableWrap=document.querySelector('.table-wrap');
+        const table=tableWrap?.querySelector('table');
+        if(!table) return;
+        tableWrap.parentElement?.querySelector('[data-teacher-pagination]')?.remove();
+        const rows=Array.from(table.tBodies?.[0]?.rows||[]);
+        const totalPages=Math.max(1,Math.ceil(rows.length/TEACHER_PAGE_SIZE));
        state.teacherPage=Math.min(Math.max(Number(state.teacherPage)||1,1),totalPages);
        const pageStart=(state.teacherPage-1)*TEACHER_PAGE_SIZE;
        rows.forEach((row,index)=>{
          const visible=index>=pageStart&&index<pageStart+TEACHER_PAGE_SIZE;
          row.hidden=!visible;
          row.setAttribute('aria-hidden',String(!visible));
-       });
-       if(totalPages<=1) return;
-       const pageEnd=Math.min(pageStart+TEACHER_PAGE_SIZE,rows.length);
-       const pagination=document.createElement('nav');
-       pagination.className='teacher-pagination no-print';
-       pagination.dataset.teacherPagination='true';
-       pagination.setAttribute('aria-label','การแบ่งหน้ารายชื่อนักเรียน');
-       pagination.innerHTML=`<button class="secondary-button" type="button" onclick="setTeacherPage(${state.teacherPage-1})" ${state.teacherPage===1?'disabled':''}>ก่อนหน้า</button><span class="teacher-pagination-status">แสดง ${pageStart+1}-${pageEnd} จาก ${rows.length} รายการ<br>หน้า ${state.teacherPage} / ${totalPages}</span><button class="secondary-button" type="button" onclick="setTeacherPage(${state.teacherPage+1})" ${state.teacherPage===totalPages?'disabled':''}>ถัดไป</button>`;
-       tableWrap.insertAdjacentElement('afterend',pagination);
-     }
+        });
+        if(totalPages<=1) return;
+        const pageEnd=Math.min(pageStart+TEACHER_PAGE_SIZE,rows.length);
+        const pageItems=[];
+        if(totalPages<=7){
+          for(let page=1;page<=totalPages;page+=1) pageItems.push(page);
+        }else{
+          pageItems.push(1);
+          if(state.teacherPage>4) pageItems.push('…');
+          const pageStartNumber=Math.max(2,state.teacherPage-1);
+          const pageEndNumber=Math.min(totalPages-1,state.teacherPage+1);
+          for(let page=pageStartNumber;page<=pageEndNumber;page+=1) pageItems.push(page);
+          if(state.teacherPage<totalPages-3) pageItems.push('…');
+          pageItems.push(totalPages);
+        }
+        const pageMarkup=pageItems.map(page=>page==='…'
+          ? '<span class="teacher-pagination-ellipsis" aria-hidden="true">…</span>'
+          : `<button class="secondary-button page-button ${page===state.teacherPage?'is-current':''}" type="button" onclick="setTeacherPage(${page})" ${page===state.teacherPage?'aria-current="page"':''}>${page}</button>`
+        ).join('');
+        const pagination=document.createElement('nav');
+        pagination.className='teacher-pagination no-print';
+        pagination.dataset.teacherPagination='true';
+        pagination.setAttribute('aria-label','การแบ่งหน้ารายชื่อนักเรียน');
+        pagination.innerHTML=`<div class="teacher-pagination-controls"><button class="secondary-button" type="button" onclick="setTeacherPage(${state.teacherPage-1})" ${state.teacherPage===1?'disabled':''}>ก่อนหน้า</button><div class="teacher-pagination-pages" aria-label="เลือกหน้า">${pageMarkup}</div><button class="secondary-button" type="button" onclick="setTeacherPage(${state.teacherPage+1})" ${state.teacherPage===totalPages?'disabled':''}>ถัดไป</button></div><span class="teacher-pagination-status">แสดง ${pageStart+1}-${pageEnd} จาก ${rows.length} รายการ · หน้า ${state.teacherPage} / ${totalPages}</span>`;
+        tableWrap.insertAdjacentElement('afterend',pagination);
+      }
      function setTeacherPage(page){ state.teacherPage=Number(page)||1; applyTeacherPagination(); }
      function applyFilters(){ state.teacherPage=1; loadDashboard({query:document.getElementById('filterQuery')?.value||'',classLevel:document.getElementById('filterClass')?.value.trim()||'',room:document.getElementById('filterRoom')?.value.trim()||''}); }
      function clearFilters(){ state.teacherPage=1; loadDashboard({}); }
