@@ -423,8 +423,8 @@
     const RAW_APP_VERSION = '__APP_VERSION__';
     const APP_VERSION = RAW_APP_VERSION.startsWith('__') ? 'dev' : RAW_APP_VERSION;
     const TEACHER_PAGE_SIZE = 20;
-    const CLIENT_BACKEND_TIMEOUT_MS = 15000;
-    const state = { config:{}, rounds:[], questions:[], sourceLinks:[], profile:{}, answers:{}, currentRound:0, result:null, teacherToken:'', responses:[], teacherPage:1, teacherFilters:{query:'',classLevel:'',room:''}, selectedUniversity:null, selectedFaculty:null, customUniversity:false, customFaculty:false, pdfSaveInFlight:false };
+    const CLIENT_BACKEND_TIMEOUT_MS = 65000;
+    const state = { config:{}, rounds:[], questions:[], sourceLinks:[], profile:{}, answers:{}, currentRound:0, result:null, teacherToken:'', responses:[], teacherPage:1, teacherFilters:{query:'',classLevel:'',room:''}, teacherLoadId:0, teacherRetryTimer:null, selectedUniversity:null, selectedFaculty:null, customUniversity:false, customFaculty:false, pdfSaveInFlight:false };
     const UNIVERSITY_DATA_URL = 'https://raw.githubusercontent.com/Hipo/university-domains-list/master/world_universities_and_domains.json';
     const THAI_UNIVERSITY_NAMES = new Map([
       ['asia pacific international university','มหาวิทยาลัยนานาชาติเอเชีย-แปซิฟิก'],
@@ -562,7 +562,11 @@
         clearTimeout(timer);
         handler(value);
       };
-      timer = window.setTimeout(() => finish(fail)(new Error('backend ไม่ตอบกลับภายใน 15 วินาที')), timeoutMs);
+      timer = window.setTimeout(() => {
+        const error=new Error('backend ไม่ตอบกลับหลังลองเชื่อมต่ออัตโนมัติ');
+        error.retryable=true;
+        finish(fail)(error);
+      }, timeoutMs);
       try {
         const runner = google.script.run
           .withSuccessHandler(finish(onSuccess))
@@ -578,8 +582,22 @@
     }
 
     function showDashboardError(error) {
-      app().innerHTML = `<section class="card"><div class="notice">${escapeHtml(error?.message || 'โหลดข้อมูลนักเรียนไม่สำเร็จ')}</div><div class="actions"><button class="primary-button" type="button" onclick="loadDashboard()">ลองใหม่</button></div></section>`;
+      clearTeacherRetry();
+      const message=error?.message || 'โหลดข้อมูลนักเรียนไม่สำเร็จ';
+      const sessionExpired=String(message).includes('เซสชันครูหมดอายุ');
+      const willRetry=Boolean(error?.retryable && state.teacherToken && !sessionExpired);
+      if(sessionExpired) state.teacherToken='';
+      app().innerHTML = `<section class="card"><div class="notice">${escapeHtml(message)}</div>${willRetry?'<div class="muted small" style="margin-top:12px;text-align:center">ระบบจะลองดึงข้อมูลใหม่อัตโนมัติใน 5 วินาที…</div>':''}<div class="actions"><button class="primary-button" type="button" onclick="${sessionExpired?'showTeacherLogin()':'loadDashboard()'}">${sessionExpired?'เข้าสู่ระบบใหม่':'ลองใหม่ตอนนี้'}</button></div></section>`;
+      if(willRetry){
+        const loadId=state.teacherLoadId;
+        state.teacherRetryTimer=window.setTimeout(()=>{
+          state.teacherRetryTimer=null;
+          if(state.teacherToken&&state.teacherLoadId===loadId) loadDashboard();
+        },5000);
+      }
     }
+
+    function clearTeacherRetry(){ if(state.teacherRetryTimer){clearTimeout(state.teacherRetryTimer);state.teacherRetryTimer=null;} }
 
     function handleSubmissionFailure(error) {
       renderQuiz();
@@ -1141,16 +1159,40 @@
     }
 
     function showTeacherLogin() {
-      app().innerHTML=`<section class="teacher-login"><div class="card"><div class="section-heading"><div><span class="eyebrow">สำหรับครู</span><h2>เข้าสู่แดชบอร์ด</h2><div class="muted small" style="margin-top:6px">ดูข้อมูลการตอบแบบประเมินและดาวน์โหลดผลรวม</div></div><button class="icon-button" onclick="switchToStudentMode()" aria-label="กลับโหมดนักเรียน">×</button></div><div class="field"><label class="field-label">ชื่อผู้ใช้</label><input id="teacherUser" autocomplete="username" placeholder="กรอกชื่อผู้ใช้"></div><div class="field" style="margin-top:14px"><label class="field-label">รหัสผ่าน</label><input id="teacherPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน"></div><div class="actions"><button class="secondary-button" onclick="switchToStudentMode()">← กลับโหมดนักเรียน</button><button class="primary-button" onclick="loginTeacher()">เข้าสู่ระบบ</button></div></div></section>`;
+      app().innerHTML=`<section class="teacher-login"><div class="card"><div class="section-heading"><div><span class="eyebrow">สำหรับครู</span><h2>เข้าสู่แดชบอร์ด</h2><div class="muted small" style="margin-top:6px">ดูข้อมูลการตอบแบบประเมินและดาวน์โหลดผลรวม</div></div><button class="icon-button" onclick="switchToStudentMode()" aria-label="กลับโหมดนักเรียน">×</button></div><div class="field"><label class="field-label">ชื่อผู้ใช้</label><input id="teacherUser" autocomplete="username" placeholder="กรอกชื่อผู้ใช้"></div><div class="field" style="margin-top:14px"><label class="field-label">รหัสผ่าน</label><input id="teacherPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน"></div><div class="actions"><button class="secondary-button" onclick="switchToStudentMode()">← กลับโหมดนักเรียน</button><button class="primary-button" id="teacherLoginButton" onclick="loginTeacher()">เข้าสู่ระบบ</button></div><div class="muted small" id="teacherLoginStatus" style="display:none;margin-top:12px;text-align:center">กำลังเชื่อมต่อ ระบบจะลองใหม่อัตโนมัติหาก backend สะดุด…</div></div></section>`;
     }
 
     function loginTeacher() {
       const username=document.getElementById('teacherUser').value.trim(); const password=document.getElementById('teacherPassword').value;
       if (!username || !password) return notify('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
-      runBackend_('teacherLogin', [username,password], session=>{state.teacherToken=session.token;state.teacherName=session.displayName;loadDashboard();}, showError);
+      const button=document.getElementById('teacherLoginButton');
+      const status=document.getElementById('teacherLoginStatus');
+      if(button?.disabled) return;
+      if(button){button.disabled=true;button.textContent='กำลังเชื่อมต่อ…';}
+      if(status) status.style.display='block';
+      runBackend_('teacherLogin', [username,password], session=>{state.teacherToken=session.token;state.teacherName=session.displayName;loadDashboard();}, error=>{
+        if(button){button.disabled=false;button.textContent='เข้าสู่ระบบ';}
+        if(status) status.style.display='none';
+        showError(error);
+      });
     }
 
-    function loadDashboard(filters) { const activeFilters=filters===undefined?(state.teacherFilters||{}):(filters||{}); state.teacherFilters={query:String(activeFilters.query||''),classLevel:String(activeFilters.classLevel||'').trim(),room:String(activeFilters.room||'').trim()}; app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังโหลดข้อมูลนักเรียน…</div></div>'; runBackend_('listResponses',[state.teacherToken,state.teacherFilters],rows=>{state.responses=rows;renderDashboard();},showDashboardError); }
+    function loadDashboard(filters) {
+      clearTeacherRetry();
+      const activeFilters=filters===undefined?(state.teacherFilters||{}):(filters||{});
+      state.teacherFilters={query:String(activeFilters.query||''),classLevel:String(activeFilters.classLevel||'').trim(),room:String(activeFilters.room||'').trim()};
+      const loadId=++state.teacherLoadId;
+      app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังโหลดข้อมูลนักเรียน…<div class="muted small" style="margin-top:8px">ระบบจะลองเชื่อมต่อใหม่อัตโนมัติหาก backend สะดุด</div></div></div>';
+      runBackend_('listResponses',[state.teacherToken,state.teacherFilters],rows=>{
+        if(loadId!==state.teacherLoadId) return;
+        clearTeacherRetry();
+        state.responses=rows;
+        renderDashboard();
+      },error=>{
+        if(loadId!==state.teacherLoadId) return;
+        showDashboardError(error);
+      });
+    }
 
     function renderDashboardContent() {
       const rows = state.responses;
@@ -1682,7 +1724,7 @@
     function detail(label,value){return `<div class="detail-item"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`;}
     function closeModal(event){if(!event||['detailModal','studentPdfPreviewModal'].includes(event.target.id)){document.getElementById('detailModal')?.remove();document.getElementById('studentPdfPreviewModal')?.remove();}}
     function topRound(rows){if(!rows.length)return'-';const scores=['r1Score','r2Score','r3Score','r4Score'].map(k=>rows.reduce((a,r)=>a+r[k],0)/rows.length);const idx=scores.indexOf(Math.max(...scores));return 'รอบที่ '+(idx+1);}
-    function switchToStudentMode(){ if (state.teacherToken) google.script.run.teacherLogout(state.teacherToken); state.teacherToken=''; state.teacherName=''; state.responses=[]; state.teacherPage=1; state.teacherFilters={query:'',classLevel:'',room:''}; renderHome(); window.scrollTo({top:0,behavior:'smooth'}); }
+    function switchToStudentMode(){ clearTeacherRetry(); if (state.teacherToken) google.script.run.teacherLogout(state.teacherToken); state.teacherToken=''; state.teacherName=''; state.responses=[]; state.teacherPage=1; state.teacherFilters={query:'',classLevel:'',room:''}; state.teacherLoadId+=1; renderHome(); window.scrollTo({top:0,behavior:'smooth'}); }
     function logoutTeacher(){ switchToStudentMode(); }
     function app(){return document.getElementById('app');}
     function notify(message){const el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');setTimeout(()=>el.classList.add('hidden'),8000);}

@@ -67,7 +67,12 @@ function createStaticRuntime(data, apiUrl) {
   return `
     let STATIC_DATA = ${JSON.stringify(data)};
     const LIVE_BACKEND_URL = ${JSON.stringify(apiUrl || '')};
-    const BACKEND_TIMEOUT_MS = 15000;
+    const LIVE_QUESTIONS_TIMEOUT_MS = 8000;
+    const BACKEND_ATTEMPT_TIMEOUT_MS = 20000;
+    const BACKEND_MAX_ATTEMPTS = 3;
+    const BACKEND_RETRY_DELAY_MS = 750;
+    const BACKEND_LATE_CALLBACK_TTL_MS = 60000;
+    const BACKEND_WRITE_TIMEOUT_MS = 45000;
     const LIVE_QUESTIONS_URL = 'https://docs.google.com/spreadsheets/d/1Rnp1zuFBUHLGutWh1h1kVzN1bAfOTVUw36Phj4vYLmQ/export?format=csv&gid=1155617573';
     const STATIC_STORAGE_KEY = 'nextStep.responses';
     const STATIC_TEACHER_USERNAME = 'teacher';
@@ -128,13 +133,24 @@ function createStaticRuntime(data, apiUrl) {
       return questions;
     }
     async function loadLiveQuestions() {
+      const controller = typeof AbortController === 'function' ? new AbortController() : null;
+      let timer;
       try {
-        const response = await fetch(LIVE_QUESTIONS_URL + '&cacheBust=' + Date.now(), {cache:'no-store'});
+        const request = fetch(LIVE_QUESTIONS_URL + '&cacheBust=' + Date.now(), {cache:'no-store', ...(controller ? {signal:controller.signal} : {})});
+        const timeout = new Promise((resolve, reject) => {
+          timer = setTimeout(() => {
+            controller?.abort();
+            reject(new Error('โหลด Questions เกิน 8 วินาที'));
+          }, LIVE_QUESTIONS_TIMEOUT_MS);
+        });
+        const response = await Promise.race([request, timeout]);
         if (!response.ok) throw new Error('โหลด Questions ไม่สำเร็จ');
         const questions = parseLiveQuestions(await response.text());
         STATIC_DATA = Object.assign({}, STATIC_DATA, {questions});
       } catch (error) {
         console.warn('ใช้คำถามสำรองที่ฝังไว้ เนื่องจากโหลด Questions สดไม่ได้', error);
+      } finally {
+        clearTimeout(timer);
       }
       return STATIC_DATA;
     }
@@ -142,24 +158,55 @@ function createStaticRuntime(data, apiUrl) {
       try { return JSON.parse(localStorage.getItem(STATIC_STORAGE_KEY) || '[]'); }
       catch (error) { return []; }
     }
-    function requestBackendJsonp(params) {
+    function backendRequestError(message, retryable) {
+      const error = new Error(message);
+      error.retryable = Boolean(retryable);
+      return error;
+    }
+    function retireBackendCallback(callbackName, script) {
+      const lateCallback = () => {};
+      window[callbackName] = lateCallback;
+      script.remove();
+      setTimeout(() => {
+        if (window[callbackName] === lateCallback) delete window[callbackName];
+      }, BACKEND_LATE_CALLBACK_TTL_MS);
+    }
+    function requestBackendJsonpOnce(params) {
       if (!LIVE_BACKEND_URL) return Promise.reject(new Error('ยังไม่ได้ตั้งค่า backend ของ Responses'));
       return new Promise((resolve, reject) => {
         const callbackName = '__nextStepJsonp_' + Date.now().toString(36) + Math.random().toString(36).slice(2);
         const script = document.createElement('script');
         const query = new URLSearchParams(Object.assign({}, params, {callback: callbackName}));
-        const cleanup = () => { delete window[callbackName]; script.remove(); };
-        const timer = setTimeout(() => { cleanup(); reject(new Error('backend ไม่ตอบกลับภายใน 15 วินาที')); }, BACKEND_TIMEOUT_MS);
-        window[callbackName] = response => {
+        let settled = false;
+        const finish = (handler, value) => {
+          if (settled) return;
+          settled = true;
           clearTimeout(timer);
-          cleanup();
-          if (!response || response.ok === false) reject(new Error(response?.error || 'backend ตอบกลับไม่สำเร็จ'));
-          else resolve(response.data);
+          retireBackendCallback(callbackName, script);
+          handler(value);
         };
-        script.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('เชื่อมต่อ backend ไม่สำเร็จ')); };
+        const timer = setTimeout(() => finish(reject, backendRequestError('backend ไม่ตอบกลับภายใน 20 วินาที', true)), BACKEND_ATTEMPT_TIMEOUT_MS);
+        window[callbackName] = response => {
+          if (!response || response.ok === false) finish(reject, backendRequestError(response?.error || 'backend ตอบกลับไม่สำเร็จ', response?.retryable === true));
+          else finish(resolve, response.data);
+        };
+        script.onerror = () => finish(reject, backendRequestError('เชื่อมต่อ backend ไม่สำเร็จ', true));
         script.src = LIVE_BACKEND_URL + '?' + query.toString();
         document.head.appendChild(script);
       });
+    }
+    async function requestBackendJsonp(params) {
+      let lastError;
+      for (let attempt = 1; attempt <= BACKEND_MAX_ATTEMPTS; attempt += 1) {
+        try {
+          return await requestBackendJsonpOnce(params);
+        } catch (error) {
+          lastError = error;
+          if (!error?.retryable || attempt === BACKEND_MAX_ATTEMPTS) throw error;
+          await new Promise(resolve => setTimeout(resolve, BACKEND_RETRY_DELAY_MS * attempt));
+        }
+      }
+      throw lastError;
     }
     function persistBackendResponse(payload) {
       if (!LIVE_BACKEND_URL) return Promise.resolve();
@@ -174,8 +221,8 @@ function createStaticRuntime(data, apiUrl) {
       const timeout = new Promise((resolve, reject) => {
         timer = setTimeout(() => {
           controller?.abort();
-          reject(new Error('backend ไม่ตอบกลับภายใน 15 วินาที ระบบจะแสดงผลต่อโดยไม่รอ backend'));
-        }, BACKEND_TIMEOUT_MS);
+          reject(new Error('backend ไม่ตอบกลับภายใน 45 วินาที ระบบจะแสดงผลต่อโดยไม่รอ backend'));
+        }, BACKEND_WRITE_TIMEOUT_MS);
       });
       return Promise.race([request, timeout]).finally(() => clearTimeout(timer));
     }
@@ -266,13 +313,13 @@ function createStaticRuntime(data, apiUrl) {
       run: {
         success: null,
         failure: null,
-        withSuccessHandler(handler) { this.success = handler; return this; },
-        withFailureHandler(handler) { this.failure = handler; return this; },
+        withSuccessHandler(handler) { const runner = Object.create(this); runner.success = handler; return runner; },
+        withFailureHandler(handler) { const runner = Object.create(this); runner.failure = handler; return runner; },
         getAppData() {
           const backend = this;
-          const request = LIVE_BACKEND_URL ? requestBackendJsonp({api:'getAppData'}) : loadLiveQuestions();
+          const request = loadLiveQuestions();
           request.then(data => { if (data?.questions) STATIC_DATA = data; backend.success?.(data); }).catch(error => {
-            if (LIVE_BACKEND_URL) console.warn('ใช้ข้อมูลสำรองเพราะโหลด backend ไม่สำเร็จ', error);
+            console.warn('ใช้ข้อมูลสำรองเพราะโหลด Questions สดไม่สำเร็จ', error);
             backend.success?.(STATIC_DATA);
           });
           return this;
@@ -293,7 +340,12 @@ function createStaticRuntime(data, apiUrl) {
           });
           return this;
         },
-        teacherLogout() { return this; },
+        teacherLogout(token) {
+          const backend = this;
+          if (!LIVE_BACKEND_URL) { backend.success?.({ok:true}); return this; }
+          requestBackendJsonp({api:'teacherLogout',token}).then(result => backend.success?.(result)).catch(error => backend.failure?.(error));
+          return this;
+        },
         teacherLogin() { this.failure?.(new Error('โหมดครูไม่เปิดใช้งานในเว็บไซต์แบบ static')); return this; },
         listResponses() { this.success?.(readStaticResponses()); return this; },
         exportResponsesCsv() { this.failure?.(new Error('ดาวน์โหลดข้อมูลครูไม่เปิดใช้งานในเว็บไซต์แบบ static')); return this; }
@@ -350,3 +402,5 @@ let output = template
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, output, 'utf8');
 console.log(`Built ${path.relative(root, outputPath)} ${appVersion} with ${data.questions.length} questions.`);
+
+export { createStaticRuntime };

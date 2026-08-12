@@ -23,6 +23,10 @@ const APP = {
   ]
 };
 
+const APP_DATA_CACHE_KEY = 'app_data_v2';
+const APP_DATA_CACHE_SECONDS = 300;
+let APP_SPREADSHEET_;
+
 const QUESTION_TYPES = ['checkbox', 'radio', 'textarea', 'text', 'university_targets', 'university_targets_10', 'university_targets_if_yes', 'exam_scores', 'star_rating'];
 const QUESTION_HEADERS = ['id', 'round', 'section', 'type', 'prompt', 'helper', 'options_json', 'required', 'active'];
 
@@ -109,8 +113,13 @@ function handleApiGet_(params) {
     else throw new Error('ไม่พบ API ที่ร้องขอ');
     return jsonpOutput_(callback, { ok: true, data: data });
   } catch (error) {
-    return jsonpOutput_(callback, { ok: false, error: String(error && error.message || error) });
+    const message = String(error && error.message || error);
+    return jsonpOutput_(callback, { ok: false, error: message, retryable: isRetryableBackendError_(message) });
   }
+}
+
+function isRetryableBackendError_(message) {
+  return /(timed out|timeout|internal error|temporar|try again|service unavailable|service invoked too many|ไม่พร้อมใช้งาน|ลองใหม่)/i.test(String(message || ''));
 }
 
 function jsonOutput_(value) {
@@ -151,11 +160,12 @@ function migrateQuestionsSheet() {
   });
   writeTable_(sheet, QUESTION_HEADERS, rows);
   formatTable_(sheet, QUESTION_HEADERS.length);
+  clearAppDataCache_();
   return { ok: true, rows: rows.length, columns: QUESTION_HEADERS };
 }
 
 function setupSheet() {
-  const ss = SpreadsheetApp.openById(APP.sheetId);
+  const ss = getSpreadsheet_();
   const existing = ss.getSheets().map(s => s.getName());
   if (existing.indexOf(APP.sheets.readme) < 0 && existing.indexOf('ชีต1') >= 0) {
     ss.getSheetByName('ชีต1').setName(APP.sheets.readme);
@@ -190,17 +200,24 @@ function setupSheet() {
   formatTable_(ss.getSheetByName(APP.sheets.responses), RESPONSE_HEADERS.length);
   formatTable_(ss.getSheetByName(APP.sheets.users), 5);
   formatTable_(ss.getSheetByName(APP.sheets.sources), 5);
+  clearAppDataCache_();
   return { ok: true, spreadsheetUrl: ss.getUrl() };
 }
 
 function getAppData() {
-  const questions = readQuestions_();
-  return {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get(APP_DATA_CACHE_KEY);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (error) {}
+  }
+  const data = {
     config: getConfig_(),
     rounds: APP.rounds,
-    questions: questions,
+    questions: readQuestions_(),
     sourceLinks: getSourceLinks_()
   };
+  try { cache.put(APP_DATA_CACHE_KEY, JSON.stringify(data), APP_DATA_CACHE_SECONDS); } catch (error) {}
+  return data;
 }
 
 function submitResponse(payload) {
@@ -494,8 +511,17 @@ function csvEscape_(value) {
   return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
 }
 
+function getSpreadsheet_() {
+  if (!APP_SPREADSHEET_) APP_SPREADSHEET_ = SpreadsheetApp.openById(APP.sheetId);
+  return APP_SPREADSHEET_;
+}
+
+function clearAppDataCache_() {
+  CacheService.getScriptCache().remove(APP_DATA_CACHE_KEY);
+}
+
 function getSheet_(name) {
-  const sheet = SpreadsheetApp.openById(APP.sheetId).getSheetByName(name);
+  const sheet = getSpreadsheet_().getSheetByName(name);
   if (!sheet) throw new Error('ไม่พบแท็บ ' + name + ' กรุณารัน setupSheet()');
   return sheet;
 }
