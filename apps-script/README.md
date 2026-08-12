@@ -14,4 +14,5 @@ This folder is kept as the source template for the static build.
 - A `university_targets_10` question renders ten ranked target rows with the same fields.
 - A `university_targets_if_yes` question renders a yes/no choice and shows three ranked target rows only when the student chooses yes.
 - An `exam_scores` question renders score inputs from its `options_json`, grouped by exam family, and stores only the scores the student entered.
-- Nothing in this folder is deployed to or executed by Google Apps Script.
+- The GitHub Pages workflow does not deploy this folder. After changing `Code.gs`, push it to the configured Apps Script project and publish a new version of the existing Web app deployment.
+- `getAppData()` caches the public app payload for five minutes and reuses one Spreadsheet handle per execution to reduce cold-start and repeated Drive access latency.
