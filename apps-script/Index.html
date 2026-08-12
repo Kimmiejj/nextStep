@@ -174,6 +174,9 @@
     .stat-label { color:var(--muted); font-size:13px; }
     .stat-value { font-size:28px; font-weight:900; margin-top:7px; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:16px; background:#fff; }
+    .teacher-pagination { display:flex; align-items:center; justify-content:center; gap:12px; margin-top:16px; }
+    .teacher-pagination-status { min-width:150px; color:var(--muted); font-size:13px; text-align:center; }
+    .teacher-pagination button:disabled { cursor:not-allowed; opacity:.5; }
     table { width:100%; border-collapse:collapse; min-width:920px; }
     th,td { text-align:left; padding:12px 13px; border-bottom:1px solid #eef0f4; font-size:13px; white-space:nowrap; }
     th { color:#4d5668; background:#f8f9fc; font-size:12px; }
@@ -414,7 +417,8 @@
   <script>
     const RAW_APP_VERSION = '__APP_VERSION__';
     const APP_VERSION = RAW_APP_VERSION.startsWith('__') ? 'dev' : RAW_APP_VERSION;
-    const state = { config:{}, rounds:[], questions:[], sourceLinks:[], profile:{}, answers:{}, currentRound:0, result:null, teacherToken:'', responses:[], teacherFilters:{query:'',classLevel:'',room:''}, selectedUniversity:null, selectedFaculty:null, customUniversity:false, customFaculty:false, pdfSaveInFlight:false };
+    const TEACHER_PAGE_SIZE = 20;
+    const state = { config:{}, rounds:[], questions:[], sourceLinks:[], profile:{}, answers:{}, currentRound:0, result:null, teacherToken:'', responses:[], teacherPage:1, teacherFilters:{query:'',classLevel:'',room:''}, selectedUniversity:null, selectedFaculty:null, customUniversity:false, customFaculty:false, pdfSaveInFlight:false };
     const UNIVERSITY_DATA_URL = 'https://raw.githubusercontent.com/Hipo/university-domains-list/master/world_universities_and_domains.json';
     const THAI_UNIVERSITY_NAMES = new Map([
       ['asia pacific international university','มหาวิทยาลัยนานาชาติเอเชีย-แปซิฟิก'],
@@ -1107,7 +1111,7 @@
 
     function loadDashboard(filters) { const activeFilters=filters===undefined?(state.teacherFilters||{}):(filters||{}); state.teacherFilters={query:String(activeFilters.query||''),classLevel:String(activeFilters.classLevel||'').trim(),room:String(activeFilters.room||'').trim()}; app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังโหลดข้อมูลนักเรียน…</div></div>'; google.script.run.withSuccessHandler(rows=>{state.responses=rows;renderDashboard();}).withFailureHandler(showError).listResponses(state.teacherToken,state.teacherFilters); }
 
-    function renderDashboard() {
+    function renderDashboardContent() {
       const rows = state.responses;
       const latest = rows.length ? rows[0].createdAt : '-';
       app().innerHTML=`<section class="card"><div class="section-heading"><div><span class="eyebrow">โหมดครู</span><h2>แดชบอร์ดข้อมูลนักเรียน</h2><div class="muted small" style="margin-top:6px">สวัสดี ${escapeHtml(state.teacherName||'คุณครู')} · ${rows.length} รายการตามตัวกรองปัจจุบัน</div></div><div class="actions" style="margin:0"><button class="secondary-button" onclick="switchToStudentMode()">← โหมดนักเรียน</button><button class="danger-button" onclick="logoutTeacher()">ออกจากระบบ</button></div></div><div class="stats-grid"><div class="stat"><div class="stat-label">จำนวนผู้ตอบ</div><div class="stat-value">${rows.length}</div></div><div class="stat"><div class="stat-label">จำนวนรอบการเรียนรู้</div><div class="stat-value">${state.rounds.length}</div></div><div class="stat"><div class="stat-label">จำนวนหัวข้อคำถาม</div><div class="stat-value">${state.questions.length}</div></div><div class="stat"><div class="stat-label">ส่งล่าสุด</div><div class="stat-value" style="font-size:16px">${escapeHtml(latest)}</div></div></div><div class="dashboard-toolbar no-print"><div class="field"><label class="field-label">ค้นหา</label><input id="filterQuery" placeholder="ชื่อ นามสกุล คณะ…"></div><div class="field"><label class="field-label">ชั้น</label><input id="filterClass" placeholder="ม.6"></div><div class="field"><label class="field-label">ห้อง</label><input id="filterRoom" placeholder="1"></div><button class="primary-button" onclick="applyFilters()">กรองข้อมูล</button></div><div class="table-wrap">${rows.length?`<table><thead><tr><th>วันที่ส่ง</th><th>นักเรียน</th><th>ชั้น/ห้อง</th><th>เป้าหมาย</th><th>สถานะ</th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="clickable" onclick="showDetail(${i})"><td>${escapeHtml(r.createdAt)}</td><td><strong>${escapeHtml(r.firstName+' '+r.lastName)}</strong><br><span class="muted">${escapeHtml(r.nickname)}</span></td><td>${escapeHtml(r.classLevel)}/${escapeHtml(r.room)} เลขที่ ${escapeHtml(r.number)}</td><td>${escapeHtml(r.targetFaculty||'-')}<br><span class="muted">${escapeHtml(r.targetUniversity||'')}</span></td><td><span class="pill">ส่งข้อมูลแล้ว</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty">ยังไม่พบข้อมูลตามตัวกรอง</div>'}</div></section>`;
@@ -1117,8 +1121,33 @@
       if(toolbar&&!toolbar.querySelector('[data-clear-filters]')){const clearButton=document.createElement('button');clearButton.type='button';clearButton.className='secondary-button';clearButton.dataset.clearFilters='true';clearButton.textContent='ล้างตัวกรอง';clearButton.onclick=clearFilters;toolbar.appendChild(clearButton);}
     }
 
-    function applyFilters(){ loadDashboard({query:document.getElementById('filterQuery')?.value||'',classLevel:document.getElementById('filterClass')?.value.trim()||'',room:document.getElementById('filterRoom')?.value.trim()||''}); }
-    function clearFilters(){ loadDashboard({}); }
+     function renderDashboard(){ renderDashboardContent(); applyTeacherPagination(); }
+     function applyTeacherPagination(){
+       const tableWrap=document.querySelector('.table-wrap');
+       const table=tableWrap?.querySelector('table');
+       if(!table) return;
+       tableWrap.querySelector('[data-teacher-pagination]')?.remove();
+       const rows=Array.from(table.tBodies?.[0]?.rows||[]);
+       const totalPages=Math.max(1,Math.ceil(rows.length/TEACHER_PAGE_SIZE));
+       state.teacherPage=Math.min(Math.max(Number(state.teacherPage)||1,1),totalPages);
+       const pageStart=(state.teacherPage-1)*TEACHER_PAGE_SIZE;
+       rows.forEach((row,index)=>{
+         const visible=index>=pageStart&&index<pageStart+TEACHER_PAGE_SIZE;
+         row.hidden=!visible;
+         row.setAttribute('aria-hidden',String(!visible));
+       });
+       if(totalPages<=1) return;
+       const pageEnd=Math.min(pageStart+TEACHER_PAGE_SIZE,rows.length);
+       const pagination=document.createElement('nav');
+       pagination.className='teacher-pagination no-print';
+       pagination.dataset.teacherPagination='true';
+       pagination.setAttribute('aria-label','การแบ่งหน้ารายชื่อนักเรียน');
+       pagination.innerHTML=`<button class="secondary-button" type="button" onclick="setTeacherPage(${state.teacherPage-1})" ${state.teacherPage===1?'disabled':''}>ก่อนหน้า</button><span class="teacher-pagination-status">แสดง ${pageStart+1}-${pageEnd} จาก ${rows.length} รายการ<br>หน้า ${state.teacherPage} / ${totalPages}</span><button class="secondary-button" type="button" onclick="setTeacherPage(${state.teacherPage+1})" ${state.teacherPage===totalPages?'disabled':''}>ถัดไป</button>`;
+       tableWrap.insertAdjacentElement('afterend',pagination);
+     }
+     function setTeacherPage(page){ state.teacherPage=Number(page)||1; applyTeacherPagination(); }
+     function applyFilters(){ state.teacherPage=1; loadDashboard({query:document.getElementById('filterQuery')?.value||'',classLevel:document.getElementById('filterClass')?.value.trim()||'',room:document.getElementById('filterRoom')?.value.trim()||''}); }
+     function clearFilters(){ state.teacherPage=1; loadDashboard({}); }
     function currentFilters(){ return state.teacherFilters||{query:'',classLevel:'',room:''}; }
     function downloadCsv(){ google.script.run.withSuccessHandler(csv=>{const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='tcas-compass-responses.csv';a.click();URL.revokeObjectURL(url);}).withFailureHandler(showError).exportResponsesCsv(state.teacherToken,currentFilters()); }
     function legacyShowDetail(i){
@@ -1596,7 +1625,7 @@
     function detail(label,value){return `<div class="detail-item"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`;}
     function closeModal(event){if(!event||['detailModal','studentPdfPreviewModal'].includes(event.target.id)){document.getElementById('detailModal')?.remove();document.getElementById('studentPdfPreviewModal')?.remove();}}
     function topRound(rows){if(!rows.length)return'-';const scores=['r1Score','r2Score','r3Score','r4Score'].map(k=>rows.reduce((a,r)=>a+r[k],0)/rows.length);const idx=scores.indexOf(Math.max(...scores));return 'รอบที่ '+(idx+1);}
-    function switchToStudentMode(){ if (state.teacherToken) google.script.run.teacherLogout(state.teacherToken); state.teacherToken=''; state.teacherName=''; state.responses=[]; state.teacherFilters={query:'',classLevel:'',room:''}; renderHome(); window.scrollTo({top:0,behavior:'smooth'}); }
+    function switchToStudentMode(){ if (state.teacherToken) google.script.run.teacherLogout(state.teacherToken); state.teacherToken=''; state.teacherName=''; state.responses=[]; state.teacherPage=1; state.teacherFilters={query:'',classLevel:'',room:''}; renderHome(); window.scrollTo({top:0,behavior:'smooth'}); }
     function logoutTeacher(){ switchToStudentMode(); }
     function app(){return document.getElementById('app');}
     function notify(message){const el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');setTimeout(()=>el.classList.add('hidden'),8000);}
