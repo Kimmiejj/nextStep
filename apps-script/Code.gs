@@ -87,10 +87,14 @@ function doGet(e) {
 function doPost(e) {
   let request = {};
   try { request = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (error) {}
-  if (request.action === 'submitResponse') {
-    return jsonOutput_({ ok: true, data: submitResponse(request.payload || {}) });
+  try {
+    if (request.action === 'submitResponse') {
+      return jsonOutput_({ ok: true, data: submitResponse(request.payload || {}) });
+    }
+    return jsonOutput_({ ok: false, error: 'ไม่พบ action ที่รองรับ' });
+  } catch (error) {
+    return jsonOutput_({ ok: false, error: String(error && error.message || error) });
   }
-  return jsonOutput_({ ok: false, error: 'ไม่พบ action ที่รองรับ' });
 }
 
 function handleApiGet_(params) {
@@ -217,7 +221,7 @@ function submitResponse(payload) {
   ];
   const sheet = getSheet_(APP.sheets.responses);
   const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  if (!lock.tryLock(10000)) throw new Error('ระบบกำลังบันทึกข้อมูลอยู่ กรุณาลองใหม่อีกครั้ง');
   try {
     if (sheet.getLastRow() === 0) sheet.getRange(1, 1, 1, RESPONSE_HEADERS.length).setValues([RESPONSE_HEADERS]);
     const values = sheet.getDataRange().getValues();

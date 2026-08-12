@@ -67,6 +67,7 @@ function createStaticRuntime(data, apiUrl) {
   return `
     let STATIC_DATA = ${JSON.stringify(data)};
     const LIVE_BACKEND_URL = ${JSON.stringify(apiUrl || '')};
+    const BACKEND_TIMEOUT_MS = 15000;
     const LIVE_QUESTIONS_URL = 'https://docs.google.com/spreadsheets/d/1Rnp1zuFBUHLGutWh1h1kVzN1bAfOTVUw36Phj4vYLmQ/export?format=csv&gid=1155617573';
     const STATIC_STORAGE_KEY = 'nextStep.responses';
     const STATIC_TEACHER_USERNAME = 'teacher';
@@ -148,7 +149,7 @@ function createStaticRuntime(data, apiUrl) {
         const script = document.createElement('script');
         const query = new URLSearchParams(Object.assign({}, params, {callback: callbackName}));
         const cleanup = () => { delete window[callbackName]; script.remove(); };
-        const timer = setTimeout(() => { cleanup(); reject(new Error('backend ไม่ตอบกลับภายในเวลาที่กำหนด')); }, 15000);
+        const timer = setTimeout(() => { cleanup(); reject(new Error('backend ไม่ตอบกลับภายใน 15 วินาที')); }, BACKEND_TIMEOUT_MS);
         window[callbackName] = response => {
           clearTimeout(timer);
           cleanup();
@@ -162,11 +163,21 @@ function createStaticRuntime(data, apiUrl) {
     }
     function persistBackendResponse(payload) {
       if (!LIVE_BACKEND_URL) return Promise.resolve();
-      return fetch(LIVE_BACKEND_URL, {
+      const controller = typeof AbortController === 'function' ? new AbortController() : null;
+      let timer;
+      const request = fetch(LIVE_BACKEND_URL, {
         method:'POST', mode:'no-cors',
         headers:{'Content-Type':'text/plain;charset=UTF-8'},
-        body:JSON.stringify({action:'submitResponse',payload})
+        body:JSON.stringify({action:'submitResponse',payload}),
+        ...(controller ? {signal:controller.signal} : {})
       }).then(() => undefined);
+      const timeout = new Promise((resolve, reject) => {
+        timer = setTimeout(() => {
+          controller?.abort();
+          reject(new Error('backend ไม่ตอบกลับภายใน 15 วินาที ระบบจะแสดงผลต่อโดยไม่รอ backend'));
+        }, BACKEND_TIMEOUT_MS);
+      });
+      return Promise.race([request, timeout]).finally(() => clearTimeout(timer));
     }
     function normalizeStaticResponse(result) {
       const profile = result?.profile || {};
@@ -274,7 +285,12 @@ function createStaticRuntime(data, apiUrl) {
             result.submissionId = 'github-' + Date.now().toString(36);
             result.backendSaved = true;
             backend.success?.(result);
-          }).catch(error => backend.failure?.(error));
+          }).catch(error => {
+            result.backendSaved = false;
+            result.backendError = error?.message || 'backend ไม่ตอบกลับ';
+            if (typeof notify === 'function') notify('แสดงผลแล้ว แต่ backend ยังยืนยันการบันทึกไม่ได้ กรุณาตรวจ Responses ภายหลัง');
+            backend.success?.(result);
+          });
           return this;
         },
         teacherLogout() { return this; },
