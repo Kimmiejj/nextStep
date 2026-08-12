@@ -418,6 +418,7 @@
     const RAW_APP_VERSION = '__APP_VERSION__';
     const APP_VERSION = RAW_APP_VERSION.startsWith('__') ? 'dev' : RAW_APP_VERSION;
     const TEACHER_PAGE_SIZE = 20;
+    const CLIENT_BACKEND_TIMEOUT_MS = 15000;
     const state = { config:{}, rounds:[], questions:[], sourceLinks:[], profile:{}, answers:{}, currentRound:0, result:null, teacherToken:'', responses:[], teacherPage:1, teacherFilters:{query:'',classLevel:'',room:''}, selectedUniversity:null, selectedFaculty:null, customUniversity:false, customFaculty:false, pdfSaveInFlight:false };
     const UNIVERSITY_DATA_URL = 'https://raw.githubusercontent.com/Hipo/university-domains-list/master/world_universities_and_domains.json';
     const THAI_UNIVERSITY_NAMES = new Map([
@@ -545,8 +546,43 @@
     let universityCatalog = FALLBACK_UNIVERSITIES.slice();
     let universityCatalogRequest = null;
 
+    function runBackend_(method, args, onSuccess, onFailure) {
+      const fail = onFailure || showError;
+      let settled = false;
+      let timer;
+      const timeoutMs = typeof LIVE_BACKEND_URL === 'string' ? CLIENT_BACKEND_TIMEOUT_MS + 1000 : CLIENT_BACKEND_TIMEOUT_MS;
+      const finish = handler => value => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        handler(value);
+      };
+      timer = window.setTimeout(() => finish(fail)(new Error('backend ไม่ตอบกลับภายใน 15 วินาที')), timeoutMs);
+      try {
+        const runner = google.script.run
+          .withSuccessHandler(finish(onSuccess))
+          .withFailureHandler(finish(fail));
+        runner[method].apply(runner, args || []);
+      } catch (error) {
+        finish(fail)(error);
+      }
+    }
+
+    function showBackendLoadError(error) {
+      app().innerHTML = `<section class="card"><div class="notice">${escapeHtml(error?.message || 'เชื่อมต่อ backend ไม่สำเร็จ')}</div><div class="actions"><button class="primary-button" type="button" onclick="location.reload()">ลองใหม่</button></div></section>`;
+    }
+
+    function showDashboardError(error) {
+      app().innerHTML = `<section class="card"><div class="notice">${escapeHtml(error?.message || 'โหลดข้อมูลนักเรียนไม่สำเร็จ')}</div><div class="actions"><button class="primary-button" type="button" onclick="loadDashboard()">ลองใหม่</button></div></section>`;
+    }
+
+    function handleSubmissionFailure(error) {
+      renderQuiz();
+      showError(error);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-      google.script.run.withSuccessHandler(boot).withFailureHandler(showError).getAppData();
+      runBackend_('getAppData', [], boot, showBackendLoadError);
     });
 
     function boot(data) {
@@ -990,7 +1026,7 @@
       const missing = state.questions.filter(q=>q.required && (!state.answers[q.id] || (Array.isArray(state.answers[q.id]) && !state.answers[q.id].length))).map(q=>q.id);
       if (missing.length) return notify('มีคำถามที่ยังไม่ได้ตอบ กรุณาเลือกคำตอบให้ครบก่อนดูผล');
       app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังจัดทำสรุปคำถามและคำตอบให้คุณ…</div></div>';
-      google.script.run.withSuccessHandler(result=>{ state.result=result; renderResult(); window.scrollTo({top:0,behavior:'smooth'}); }).withFailureHandler(showError).submitResponse({profile:state.profile,answers:state.answers});
+      runBackend_('submitResponse', [{profile:state.profile,answers:state.answers}], result=>{ state.result=result; renderResult(); window.scrollTo({top:0,behavior:'smooth'}); }, handleSubmissionFailure);
     }
 
     function answerIsComplete(question, answer) {
@@ -1035,7 +1071,7 @@
         return notify(`ยังตอบข้อ required ไม่ครบ กรุณาตอบข้อเหล่านี้ก่อนส่ง:\n${missing.map(requiredQuestionLabel).join('\n')}`);
       }
       app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังจัดทำสรุปคำถามและคำตอบให้คุณ…</div></div>';
-      google.script.run.withSuccessHandler(result=>{ state.result=result; renderResult(); window.scrollTo({top:0,behavior:'smooth'}); }).withFailureHandler(showError).submitResponse({profile:state.profile,answers:state.answers});
+      runBackend_('submitResponse', [{profile:state.profile,answers:state.answers}], result=>{ state.result=result; renderResult(); window.scrollTo({top:0,behavior:'smooth'}); }, handleSubmissionFailure);
     }
 
     function renderResult() {
@@ -1106,10 +1142,10 @@
     function loginTeacher() {
       const username=document.getElementById('teacherUser').value.trim(); const password=document.getElementById('teacherPassword').value;
       if (!username || !password) return notify('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
-      google.script.run.withSuccessHandler(session=>{state.teacherToken=session.token;state.teacherName=session.displayName;loadDashboard();}).withFailureHandler(showError).teacherLogin(username,password);
+      runBackend_('teacherLogin', [username,password], session=>{state.teacherToken=session.token;state.teacherName=session.displayName;loadDashboard();}, showError);
     }
 
-    function loadDashboard(filters) { const activeFilters=filters===undefined?(state.teacherFilters||{}):(filters||{}); state.teacherFilters={query:String(activeFilters.query||''),classLevel:String(activeFilters.classLevel||'').trim(),room:String(activeFilters.room||'').trim()}; app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังโหลดข้อมูลนักเรียน…</div></div>'; google.script.run.withSuccessHandler(rows=>{state.responses=rows;renderDashboard();}).withFailureHandler(showError).listResponses(state.teacherToken,state.teacherFilters); }
+    function loadDashboard(filters) { const activeFilters=filters===undefined?(state.teacherFilters||{}):(filters||{}); state.teacherFilters={query:String(activeFilters.query||''),classLevel:String(activeFilters.classLevel||'').trim(),room:String(activeFilters.room||'').trim()}; app().innerHTML='<div class="card loading"><div><div class="spinner"></div>กำลังโหลดข้อมูลนักเรียน…</div></div>'; runBackend_('listResponses',[state.teacherToken,state.teacherFilters],rows=>{state.responses=rows;renderDashboard();},showDashboardError); }
 
     function renderDashboardContent() {
       const rows = state.responses;
@@ -1149,7 +1185,7 @@
      function applyFilters(){ state.teacherPage=1; loadDashboard({query:document.getElementById('filterQuery')?.value||'',classLevel:document.getElementById('filterClass')?.value.trim()||'',room:document.getElementById('filterRoom')?.value.trim()||''}); }
      function clearFilters(){ state.teacherPage=1; loadDashboard({}); }
     function currentFilters(){ return state.teacherFilters||{query:'',classLevel:'',room:''}; }
-    function downloadCsv(){ google.script.run.withSuccessHandler(csv=>{const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='tcas-compass-responses.csv';a.click();URL.revokeObjectURL(url);}).withFailureHandler(showError).exportResponsesCsv(state.teacherToken,currentFilters()); }
+     function downloadCsv(){ runBackend_('exportResponsesCsv',[state.teacherToken,currentFilters()],csv=>{const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='tcas-compass-responses.csv';a.click();URL.revokeObjectURL(url);},showError); }
     function legacyShowDetail(i){
       const r=state.responses[i];
       const answers=Object.entries(parseAnswers(r.answersJson));
@@ -1581,17 +1617,17 @@
       if(state.pdfSaveInFlight) return notify('กำลังบันทึกข้อมูล กรุณารอสักครู่');
       state.pdfSaveInFlight=true;
       notify('กำลังบันทึกข้อมูลลงชีต Responses…');
-      google.script.run.withSuccessHandler(result=>{
+      runBackend_('submitResponse', [{profile:state.profile,answers:state.answers}], result=>{
         state.pdfSaveInFlight=false;
         state.result=result;
         renderResult();
-        notify('บันทึกข้อมูลในชีต Responses แล้ว');
+        notify(result?.backendSaved === false ? 'แสดงผลแล้ว แต่ backend ยังยืนยันการบันทึกไม่ได้' : 'บันทึกข้อมูลในชีต Responses แล้ว');
         openStudentPdfPreview_();
         downloadStudentResultPdfFile();
-      }).withFailureHandler(error=>{
+      }, error=>{
         state.pdfSaveInFlight=false;
         showError(error);
-      }).submitResponse({profile:state.profile,answers:state.answers});
+      });
     }
     function legacyOpenStudentPdfPreview_(){
       const source=document.getElementById('report');
